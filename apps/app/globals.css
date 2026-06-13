@@ -64,3 +64,65 @@ body {
   background: var(--color-border);
   border-radius: 4px;
 }
+/* Driver.js custom popover styles */
+.tryb3-popover {
+  background-color: #1c2333 !important;
+  border: 1px solid #2a3347 !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  max-width: 280px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.tryb3-popover .driver-popover-title {
+  font-family: "Inter", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+  margin-bottom: 6px !important;
+}
+
+.tryb3-popover .driver-popover-description {
+  font-family: "Inter", sans-serif !important;
+  font-size: 13px !important;
+  color: #94a3b8 !important;
+  line-height: 1.6 !important;
+}
+
+.tryb3-popover .driver-popover-progress-text {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 11px !important;
+  color: #4b5563 !important;
+}
+
+.tryb3-popover .driver-popover-next-btn {
+  background-color: #10b981 !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-family: "Inter", sans-serif !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+}
+
+.tryb3-popover .driver-popover-prev-btn {
+  background-color: transparent !important;
+  color: #94a3b8 !important;
+  border: 1px solid #2a3347 !important;
+  border-radius: 6px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-family: "Inter", sans-serif !important;
+  cursor: pointer !important;
+}
+
+.tryb3-popover .driver-popover-close-btn {
+  color: #4b5563 !important;
+  font-size: 16px !important;
+}
+
+.driver-overlay {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
