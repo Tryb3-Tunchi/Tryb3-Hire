@@ -10,7 +10,6 @@ export function useOnboarding() {
     const driverObj = driver({
       showProgress: true,
       animate: true,
-      overlayColor: "#000",
       overlayOpacity: 0.7,
       smoothScroll: true,
       allowClose: true,
@@ -99,7 +98,6 @@ export function useOnboarding() {
       ],
     });
 
-    // Small delay so page renders first
     const timer = setTimeout(() => {
       driverObj.drive();
     }, 1000);

@@ -1,19 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { mockPipelines } from "@/lib/mockData";
 import PipelineCard from "@/components/dashboard/PipeLineCard";
 import SystemHealth from "@/components/dashboard/SystemHealth";
+import NewPipelineModal from "@/components/dashboard/NewPipelineModal";
 import { Plus } from "lucide-react";
 import { useOnboarding } from "@/lib/hooks/useOnboarding";
 
 export default function DashboardPage() {
   useOnboarding();
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="max-w-5xl mx-auto">
-
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -24,7 +25,8 @@ export default function DashboardPage() {
             Command Center
           </h1>
           <p className="text-sm text-text-secondary mt-1">
-            {mockPipelines.filter(p => p.status === "active").length} active pipelines
+            {mockPipelines.filter((p) => p.status === "active").length} active
+            pipelines
           </p>
         </div>
 
@@ -32,6 +34,7 @@ export default function DashboardPage() {
           id="new-pipeline-btn"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent
                      text-white text-sm font-medium border-0 cursor-pointer"
         >
@@ -40,12 +43,10 @@ export default function DashboardPage() {
         </motion.button>
       </motion.div>
 
-      {/* System health */}
       <div id="system-health">
         <SystemHealth />
       </div>
 
-      {/* Pipelines */}
       <div className="mt-8" id="pipeline-list">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-text-primary">
@@ -62,6 +63,11 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      <NewPipelineModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+      />
     </div>
   );
 }
