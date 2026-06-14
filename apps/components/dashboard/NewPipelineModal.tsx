@@ -169,10 +169,26 @@ export default function NewPipelineModal({ isOpen, onClose }: Props) {
                     {/* PDF mode placeholder */}
                     {mode === "pdf" && (
                       <div
-                        className="flex flex-col items-center justify-center
-                                      h-40 gap-3 rounded-xl border border-border-main
-                                      border-dashed bg-bg-secondary cursor-pointer
-                                      hover:border-accent transition-colors"
+                        className="flex flex-col items-center justify-center h-40 gap-3
+               rounded-xl border border-border-main border-dashed
+               bg-bg-secondary cursor-pointer hover:border-accent
+               transition-colors"
+                        onClick={() => {
+                          const input = document.createElement("input");
+                          input.type = "file";
+                          input.accept = ".pdf";
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement)
+                              .files?.[0];
+                            if (file) {
+                              setJobDescription(
+                                `PDF uploaded: ${file.name} — Qwen-VL will process this when pipeline starts`,
+                              );
+                              setMode("text");
+                            }
+                          };
+                          input.click();
+                        }}
                       >
                         <Upload size={20} color="#2A3347" />
                         <p className="mono text-xs text-text-muted text-center">
