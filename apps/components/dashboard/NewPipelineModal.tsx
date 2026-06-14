@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, FileText, Mail, Upload } from "lucide-react";
+import { api } from "@/lib/api/client";
 
 interface Props {
   isOpen: boolean;
@@ -28,13 +29,21 @@ export default function NewPipelineModal({ isOpen, onClose }: Props) {
     setLoading(true);
     setStep("processing");
 
-    // Simulate intake agent processing for now
-    // Will be replaced with real Qwen API call when credits land
-    await new Promise((r) => setTimeout(r, 3000));
-    setLoading(false);
-    onClose();
-    setStep("input");
-    setJobDescription("");
+    try {
+      const result = await api.createPipeline(jobDescription);
+      console.log("Pipeline created:", result.pipelineId);
+
+      // Wait 3 seconds to show animation then close
+      await new Promise((r) => setTimeout(r, 3000));
+      onClose();
+      setStep("input");
+      setJobDescription("");
+    } catch (error) {
+      console.error("Failed to create pipeline:", error);
+      setStep("input");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const agentSteps = [
