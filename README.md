@@ -2,67 +2,65 @@
 
 > Six agents. One hire. Zero guesswork.
 
-TryB3 is a multi-agent AI system that automates the entire recruitment 
-pipeline — from job intake to candidate shortlisting — using Qwen models 
-on Alibaba Cloud infrastructure.
+Built for the Global AI Hackathon with Qwen Cloud.
 
 ## Tracks
-
-- **Track 3: Agent Society** — Multi-agent collaboration with task division, 
-  negotiation, and conflict resolution
-- **Track 4: Autopilot Agent** — End-to-end business workflow automation 
-  with human-in-the-loop checkpoints
+- Track 3: Agent Society
+- Track 4: Autopilot Agent
 
 ## Architecture
+![Architecture](./architecture.png)
 
-![TryB3 System Architecture](./architecture.png)
+## What It Does
+TryB3 deploys six AI agents that handle the entire recruitment 
+pipeline autonomously — from parsing a job description to 
+shortlisting candidates — with human approval at critical steps.
+
+## Agent Pipeline
+| Agent | Model | Role |
+|---|---|---|
+| Intake | Qwen-Max | Parses job descriptions to structured JSON |
+| Market | Qwen-Max | Researches salary benchmarks and talent supply |
+| Sourcing | Qwen-Max | Scores candidates with full reasoning trace |
+| Screening | Qwen-Plus | Multi-turn conversations with persistent memory |
+| Conflict | Qwen-Max | Mediates disagreements between agents |
+| Coordinator | Qwen-Max | Orchestrates the full pipeline |
 
 ## Tech Stack
-
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 14, Tailwind CSS, Framer Motion |
 | Backend | Node.js, Express, TypeScript |
-| AI Models | Qwen-Max, Qwen-Plus, Qwen-VL (via Qwen Cloud) |
-| Database | Alibaba Cloud RDS (PostgreSQL) |
-| Vector Memory | Alibaba Cloud AnalyticDB |
+| AI | Qwen-Max, Qwen-Plus via Qwen Cloud |
+| Database | Alibaba Cloud RDS PostgreSQL |
+| Memory | Alibaba Cloud AnalyticDB Vector DB |
 | Queue | Alibaba Cloud Redis |
-| File Storage | Alibaba Cloud OSS |
+| Storage | Alibaba Cloud OSS |
 | Deployment | Alibaba Cloud ECS |
-
-## Agents
-
-| Agent | Role |
-|---|---|
-| Intake Agent | Parses job descriptions from text, email, or PDF |
-| Market Agent | Researches salary benchmarks and talent supply |
-| Sourcing Agent | Scores candidates with full reasoning trace |
-| Screening Agent | Multi-turn conversations with persistent memory |
-| Conflict Agent | Mediates disagreements between agents |
-| Coordinator | Orchestrates the full pipeline |
 
 ## Setup
 
+### Frontend
 \`\`\`bash
-# Frontend
 cd apps
 npm install
-npm run dev
-
-# Backend  
-cd api
-npm install
+cp .env.local.example .env.local
 npm run dev
 \`\`\`
 
-## Environment Variables
+### Backend
+\`\`\`bash
+cd api
+npm install
+cp .env.example .env
+npm run dev
+\`\`\`
 
+### Environment Variables
 \`\`\`env
 QWEN_API_KEY=your_key_here
-ALIBABA_RDS_URL=your_db_url
-ALIBABA_REDIS_URL=your_redis_url
+NEXT_PUBLIC_API_URL=http://localhost:4000
 \`\`\`
 
 ## License
-
 MIT

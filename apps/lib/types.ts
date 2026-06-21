@@ -45,3 +45,22 @@ export interface Pipeline {
   currentAgentId: AgentId;
   requiresHumanApproval: boolean;
 }
+export interface PipelineState {
+  id: string;
+  jobDescription: string;
+  jobSpec?: {
+    title: string;
+    seniority: string;
+    requiredSkills: string[];
+    niceToHaveSkills: string[];
+    experienceYears: number;
+    responsibilities: string[];
+    salaryRange?: string;
+    location?: string;
+    rawDescription: string;
+  };
+  currentStage: string;
+  requiresHumanApproval: boolean;
+  humanApprovalReason?: string;
+  log: string[];
+}
