@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
-import { runCoordinatorAgent, PipelineState } from "../agents/coordinatorAgent";
+import { runCoordinatorAgent } from "../agents/coordinatorAgent";
 
 const router = Router();
 
-const pipelines: Map<string, PipelineState> = new Map();
+const pipelines: Map<string, any> = new Map();
 
 router.post("/", async (req: Request, res: Response) => {
   try {
@@ -18,22 +18,25 @@ router.post("/", async (req: Request, res: Response) => {
 
     const pipelineId = `pipe-${Date.now()}`;
 
-    const initialState: PipelineState = {
+    const initialState = {
       id: pipelineId,
       jobDescription,
-      currentStage: "intake",
+      currentStage: "intake" as const,
       requiresHumanApproval: false,
-      log: [],
+      log: [] as string[],
     };
 
     pipelines.set(pipelineId, initialState);
 
     runCoordinatorAgent(initialState)
-      .then((updatedState) => {
-        pipelines.set(pipelineId, updatedState);
+      .then((updated) => {
+        pipelines.set(pipelineId, updated);
+        console.log(
+          `[Pipeline] ${pipelineId} updated — stage: ${updated.currentStage}`,
+        );
       })
       .catch((err) => {
-        console.error(`Pipeline ${pipelineId} failed:`, err);
+        console.error(`[Pipeline] ${pipelineId} failed:`, err);
       });
 
     res.status(201).json({

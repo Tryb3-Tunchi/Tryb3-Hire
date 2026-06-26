@@ -151,15 +151,31 @@ export default function PipelineDetailPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: "Candidates", value: candidatesCount },
-          { label: "Agents done", value: agentsDone },
-          { label: "Current stage", value: currentStage },
+          {
+            label: "Current stage",
+            value:
+              (livePipeline as any)?.current_stage ??
+              (livePipeline as any)?.currentStage ??
+              pipeline?.currentAgentId ??
+              "—",
+          },
+          {
+            label: "Skills identified",
+            value:
+              (livePipeline as any)?.job_spec?.requiredSkills?.join(", ") ??
+              (livePipeline as any)?.jobSpec?.requiredSkills?.join(", ") ??
+              "Processing...",
+          },
+          {
+            label: "Log entries",
+            value: coordinatorLog.length,
+          },
         ].map((stat) => (
           <div
             key={stat.label}
             className="rounded-xl border border-border-main bg-bg-card p-4"
           >
-            <p className="text-xl font-semibold text-text-primary capitalize">
+            <p className="text-sm font-semibold text-text-primary capitalize truncate">
               {stat.value}
             </p>
             <p className="mono text-xs text-text-muted mt-0.5">{stat.label}</p>

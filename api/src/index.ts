@@ -13,7 +13,6 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
-// Health check
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -24,12 +23,10 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Routes
 app.use("/api/pipelines", pipelineRoutes);
 app.use("/api/candidates", candidateRoutes);
 app.use("/api/screening", screeningRoutes);
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });

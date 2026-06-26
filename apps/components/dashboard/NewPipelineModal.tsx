@@ -25,7 +25,10 @@ export default function NewPipelineModal({ isOpen, onClose }: Props) {
   ];
 
   const handleSubmit = async () => {
-    if (!jobDescription.trim() && mode === "text") return;
+    if (!jobDescription.trim() || jobDescription.trim().length < 50) {
+      alert("Please enter a longer job description (at least 50 characters)");
+      return;
+    }
     setLoading(true);
     setStep("processing");
 
@@ -33,15 +36,20 @@ export default function NewPipelineModal({ isOpen, onClose }: Props) {
       const result = await api.createPipeline(jobDescription);
       console.log("Pipeline created:", result.pipelineId);
 
-      // Wait 3 seconds to show animation then close
+      // Wait 3 seconds to show animation
       await new Promise((r) => setTimeout(r, 3000));
+
+      // Close modal and navigate to pipeline
       onClose();
       setStep("input");
       setJobDescription("");
+
+      // Navigate to the new pipeline
+      window.location.href = `/pipeline/${result.pipelineId}`;
     } catch (error) {
-      console.error("Failed to create pipeline:", error);
+      console.error("Failed:", error);
+      alert("Failed to create pipeline. Check that your backend is running.");
       setStep("input");
-    } finally {
       setLoading(false);
     }
   };
