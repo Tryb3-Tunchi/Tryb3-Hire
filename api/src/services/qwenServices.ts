@@ -1,8 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-const QWEN_BASE_URL =
-  "https://ws-l5201xj4emlaw1j8.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
+const QWEN_BASE_URL = "https://ws-l5201xj4emlaw1j8.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
 
 export interface QwenMessage {
   role: "system" | "user" | "assistant";
@@ -20,12 +19,12 @@ export interface QwenResponse {
 export async function callQwen(
   messages: QwenMessage[],
   model = "qwen3.7-max",
-  maxTokens = 1000,
+  maxTokens = 1000
 ): Promise<QwenResponse> {
   const apiKey = process.env.QWEN_API_KEY;
 
   if (!apiKey) {
-    throw new Error("QWEN_API_KEY not set in environment");
+    throw new Error("QWEN_API_KEY not found in environment variables");
   }
 
   const response = await fetch(`${QWEN_BASE_URL}/chat/completions`, {
@@ -48,7 +47,6 @@ export async function callQwen(
   }
 
   const data = await response.json();
-
   return {
     content: data.choices[0].message.content,
     usage: data.usage,

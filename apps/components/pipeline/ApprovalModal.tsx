@@ -10,6 +10,25 @@ interface Props {
 }
 
 export default function ApprovalModal({ pipeline, onClose }: Props) {
+  const handleApprove = async () => {
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipeline.id}/approve`,
+        { method: "POST" },
+      );
+      onClose();
+      window.location.reload();
+    } catch {
+      console.error("Approval failed");
+    }
+  };
+
+  const jobTitle =
+    (pipeline as any).jobSpec?.title ??
+    (pipeline as any).job_spec?.title ??
+    pipeline.jobTitle ??
+    "Pipeline";
+
   return (
     <AnimatePresence>
       <motion.div
@@ -25,8 +44,7 @@ export default function ApprovalModal({ pipeline, onClose }: Props) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full max-w-md rounded-2xl border border-border-main 
-                     bg-bg-card p-6"
+          className="w-full max-w-md rounded-2xl border border-border-main bg-bg-card p-6"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-5">
@@ -34,13 +52,11 @@ export default function ApprovalModal({ pipeline, onClose }: Props) {
               <h3 className="font-semibold text-text-primary">
                 Human approval required
               </h3>
-              <p className="text-xs text-text-muted mt-0.5 mono">
-                {pipeline.jobTitle} · {pipeline.company}
-              </p>
+              <p className="text-xs text-text-muted mt-0.5 mono">{jobTitle}</p>
             </div>
             <button
               onClick={onClose}
-              className="w-7 h-7 rounded-lg border border-border-main 
+              className="w-7 h-7 rounded-lg border border-border-main
                          bg-bg-secondary flex items-center justify-center cursor-pointer"
             >
               <X size={13} color="#94A3B8" />
@@ -50,13 +66,39 @@ export default function ApprovalModal({ pipeline, onClose }: Props) {
           {/* Message */}
           <div className="rounded-lg bg-bg-secondary border border-border-main p-4 mb-5">
             <p className="text-sm text-text-secondary leading-relaxed">
-              The Screening Agent has completed candidate conversations and
-              prepared a shortlist of{" "}
+              The Market Intelligence Agent has completed research and the
+              pipeline is ready to proceed to candidate sourcing. Review the
+              market data and approve to deploy the
               <span className="text-text-primary font-medium">
-                {pipeline.candidates.length} candidates
+                {" "}
+                Sourcing Agent
               </span>
-              . Review and approve to proceed with interview scheduling.
+              .
             </p>
+
+            {(pipeline as any).marketIntelligence && (
+              <div className="mt-3 space-y-1.5">
+                <p className="mono text-xs text-accent">
+                  Salary range: $
+                  {(
+                    pipeline as any
+                  ).marketIntelligence.salaryRange?.min?.toLocaleString()}{" "}
+                  — $
+                  {(
+                    pipeline as any
+                  ).marketIntelligence.salaryRange?.max?.toLocaleString()}{" "}
+                  USD
+                </p>
+                <p className="mono text-xs text-text-muted">
+                  Talent supply:{" "}
+                  {(pipeline as any).marketIntelligence.talentSupply}
+                </p>
+                <p className="mono text-xs text-text-muted">
+                  Avg time to hire:{" "}
+                  {(pipeline as any).marketIntelligence.averageTimeToHire}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -64,21 +106,21 @@ export default function ApprovalModal({ pipeline, onClose }: Props) {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              onClick={onClose}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 
-                         rounded-lg bg-accent text-white text-sm font-medium 
+              onClick={handleApprove}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5
+                         rounded-lg bg-accent text-white text-sm font-medium
                          cursor-pointer border-0"
             >
               <CheckCircle size={14} />
-              Approve shortlist
+              Approve and continue
             </motion.button>
 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               onClick={onClose}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 
-                         rounded-lg border border-border-main bg-bg-secondary 
+              className="flex-1 flex items-center justify-center gap-2 py-2.5
+                         rounded-lg border border-border-main bg-bg-secondary
                          text-text-secondary text-sm font-medium cursor-pointer"
             >
               <XCircle size={14} />
