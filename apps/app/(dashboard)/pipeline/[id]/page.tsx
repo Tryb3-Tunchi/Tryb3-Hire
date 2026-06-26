@@ -93,13 +93,14 @@ export default function PipelineDetailPage() {
             </div>
           )}
 
-          {requiresApproval && (
+          {((livePipeline as any)?.requiresHumanApproval ||
+            pipeline?.requiresHumanApproval) && (
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setShowApproval(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg
-                         border cursor-pointer text-xs font-medium"
+               border cursor-pointer text-xs font-medium"
               style={{
                 backgroundColor: "rgba(245,158,11,0.08)",
                 borderColor: "rgba(245,158,11,0.25)",
@@ -192,9 +193,24 @@ export default function PipelineDetailPage() {
       )}
 
       {/* Approval modal */}
-      {showApproval && pipeline && (
+      {showApproval && (
         <ApprovalModal
-          pipeline={pipeline}
+          pipeline={{
+            ...((livePipeline as any) ?? pipeline),
+            id: pipelineId ?? "",
+            jobTitle:
+              (livePipeline as any)?.jobSpec?.title ??
+              pipeline?.jobTitle ??
+              "Pipeline",
+            company: pipeline?.company ?? "",
+            candidates: pipeline?.candidates ?? [],
+            agents: pipeline?.agents ?? [],
+            status: "active",
+            createdAt: new Date().toISOString(),
+            currentAgentId: "coordinator",
+            requiresHumanApproval: true,
+            marketIntelligence: (livePipeline as any)?.marketIntelligence,
+          }}
           onClose={() => setShowApproval(false)}
         />
       )}
