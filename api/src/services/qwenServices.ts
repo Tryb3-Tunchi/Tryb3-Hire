@@ -4,10 +4,6 @@ dotenv.config();
 const QWEN_BASE_URL =
   "https://ws-l5201xj4emlaw1j8.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1";
 
-const QWEN_API_KEY =
-  process.env.QWEN_API_KEY ||
-  "sk-ws-H.LHEDDM.xvgI.MEYCIQDxxwoziOJx11yXj_iQpivC2ijCg97iSeFzptwi_O8lZAIhAO1lDOy7sB770MzGCuLZ05zT-ocs9p6Fatr-Q_qi5UvX";
-
 export interface QwenMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -26,11 +22,17 @@ export async function callQwen(
   model = "qwen3.7-max",
   maxTokens = 1000,
 ): Promise<QwenResponse> {
+  const apiKey = process.env.QWEN_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("QWEN_API_KEY not set in environment");
+  }
+
   const response = await fetch(`${QWEN_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${QWEN_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -46,6 +48,7 @@ export async function callQwen(
   }
 
   const data = await response.json();
+
   return {
     content: data.choices[0].message.content,
     usage: data.usage,
