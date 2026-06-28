@@ -77,16 +77,22 @@ export async function runCoordinatorAgent(
 
     case "sourcing": {
       state.log.push(
-        "Coordinator: Sourcing Agent will score candidates as they are submitted",
+        "Coordinator: Sourcing Agent active — candidates being scored",
       );
+      // After human proceeds from sourcing
       state.currentStage = "screening";
+      state.requiresHumanApproval = false;
+      state.log.push("Coordinator: Moving to screening phase");
       return state;
     }
 
     case "screening": {
       state.log.push(
-        "Coordinator: Screening Agent active — processing candidate conversations",
+        "Coordinator: Screening Agent active — conducting candidate interviews",
       );
+      state.requiresHumanApproval = true;
+      state.humanApprovalReason =
+        "Screening complete — approve final shortlist";
       return state;
     }
 

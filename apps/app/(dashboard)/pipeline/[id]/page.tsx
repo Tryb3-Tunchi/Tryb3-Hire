@@ -182,8 +182,26 @@ export default function PipelineDetailPage() {
 
   // Determine each agent's status
   const getAgentStatus = (agentId: string) => {
-    const idx = stageIndex[agentId] ?? 0;
-    if (idx < currentIndex) return "completed";
+    const agentStageMap: Record<string, string> = {
+      intake: "intake",
+      market: "market",
+      sourcing: "sourcing",
+      screening: "screening",
+      conflict: "conflict",
+      coordinator: "coordinator",
+    };
+
+    const agentStage = agentStageMap[agentId];
+    const agentIdx = stageIndex[agentStage] ?? 0;
+    const currentIdx = stageIndex[currentStage] ?? 0;
+
+    // Coordinator is special — always active
+    if (agentId === "coordinator") {
+      if (currentStage === "completed") return "completed";
+      return "running";
+    }
+
+    if (agentIdx < currentIdx) return "completed";
     if (agentId === currentStage) {
       return requiresApproval ? "waiting" : "running";
     }
@@ -232,6 +250,41 @@ export default function PipelineDetailPage() {
       setSubmitting(false);
     }
   };
+
+  {
+    scoredCandidates.length > 0 && currentStage === "sourcing" && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="mt-4 p-4 rounded-xl border border-border-main
+               bg-bg-secondary flex items-center justify-between"
+      >
+        <div>
+          <p className="text-sm font-medium text-text-primary">
+            {scoredCandidates.length} candidates scored
+          </p>
+          <p className="mono text-xs text-text-muted mt-0.5">
+            Ready to proceed to screening phase
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={async () => {
+            await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
+              { method: "POST" },
+            );
+            window.location.reload();
+          }}
+          className="px-4 py-2 rounded-lg bg-accent text-white
+                 text-xs font-medium border-0 cursor-pointer"
+        >
+          Proceed to screening →
+        </motion.button>
+      </motion.div>
+    );
+  }
 
   if (!lp && !loading) {
     return (
