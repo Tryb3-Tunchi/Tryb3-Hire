@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function SettingsPage() {
   const [apiUrl] = useState(
@@ -16,14 +16,19 @@ export default function SettingsPage() {
   const checkHealth = async () => {
     setChecking(true);
     try {
-      const res = await fetch(`${apiUrl}/health`);
+      const url = `${apiUrl}/health`;
+      const res = await fetch(url);
       const data = await res.json();
       setApiStatus(data.status === "ok" ? "online" : "offline");
-    } catch {
+    } catch (err) {
+      console.error("Health check failed:", err);
       setApiStatus("offline");
     } finally {
       setChecking(false);
     }
+    useEffect(() => {
+      checkHealth();
+    }, []);
   };
 
   return (

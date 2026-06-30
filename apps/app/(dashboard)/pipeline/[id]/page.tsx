@@ -594,7 +594,7 @@ export default function PipelineDetailPage() {
           {scoredCandidates.length === 0 ? (
             <div
               className="flex flex-col items-center justify-center h-20
-                             border border-border-main rounded-xl border-dashed"
+                            border border-border-main rounded-xl border-dashed"
             >
               <p className="mono text-xs text-text-muted">
                 No candidates scored yet — click Add candidate above
@@ -793,63 +793,103 @@ export default function PipelineDetailPage() {
               ))}
             </div>
           )}
-
-          {/* Action Panels inserted right under the candidate tracking stack */}
-          {/* Proceed to screening */}
-          {scoredCandidates.length > 0 && currentStage === "sourcing" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-4 p-4 rounded-xl border border-border-main
-                         bg-bg-secondary flex items-center justify-between"
-            >
-              <div>
-                <p className="text-sm font-medium text-text-primary">
-                  {scoredCandidates.length} candidates scored
-                </p>
-                <p className="mono text-xs text-text-muted mt-0.5">
-                  Ready to proceed to screening phase
-                </p>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={async () => {
-                  await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
-                    { method: "POST" },
-                  );
-                  window.location.reload();
-                }}
-                className="px-4 py-2 rounded-lg bg-accent text-white
-                           text-xs font-medium border-0 cursor-pointer"
-              >
-                Proceed to screening →
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* After scoring — navigate hint */}
-          {scoredCandidates.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-3 flex items-center justify-between p-3 rounded-lg
-                         border border-border-main bg-bg-card"
-            >
-              <p className="mono text-xs text-text-muted">
-                {scoredCandidates.length} candidate(s) ready for screening
-              </p>
-              
-              <Link
-                href="/candidates"
-                className="mono text-xs text-accent hover:underline cursor-pointer"
-              >
-                Go to Candidates page →
-              </Link>
-            </motion.div>
-          )}
         </div>
+      )}
+
+      {/* Proceed to screening */}
+      {scoredCandidates.length > 0 && currentStage === "sourcing" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 p-4 rounded-xl border border-border-main
+               bg-bg-secondary flex items-center justify-between"
+        >
+          <div>
+            <p className="text-sm font-medium text-text-primary">
+              {scoredCandidates.length} candidates scored
+            </p>
+            <p className="mono text-xs text-text-muted mt-0.5">
+              Ready to proceed to screening phase
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={async () => {
+              await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
+                { method: "POST" },
+              );
+              window.location.reload();
+            }}
+            className="px-4 py-2 rounded-lg bg-accent text-white
+                 text-xs font-medium border-0 cursor-pointer"
+          >
+            Proceed to screening →
+          </motion.button>
+        </motion.div>
+      )}
+
+      {/* After scoring — navigate hint */}
+      {scoredCandidates.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-3 flex items-center justify-between p-3 rounded-lg
+               border border-border-main bg-bg-card"
+        >
+          <p className="mono text-xs text-text-muted">
+            {scoredCandidates.length} candidate(s) ready for screening
+          </p>
+
+          <a
+            href="/candidates"
+            className="mono text-xs text-accent hover:underline cursor-pointer"
+          >
+            Go to Candidates page →
+          </a>
+        </motion.div>
+      )}
+
+      {/* Show what's next */}
+      {scoredCandidates.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-3 p-4 rounded-xl border border-dashed border-border-main"
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Clock size={13} color="#F59E0B" />
+            <p className="text-xs font-medium text-text-primary">
+              Next: Screening Agent
+            </p>
+          </div>
+          <p className="mono text-xs text-text-muted">
+            Once you proceed, the Screening Agent will be ready to conduct
+            multi-turn conversations with scored candidates on the Candidates
+            page.
+          </p>
+        </motion.div>
+      )}
+
+      {/* Approval Modal */}
+      {showApproval && lp && (
+        <ApprovalModal
+          pipeline={{
+            ...lp,
+            id: pipelineId ?? "",
+            jobTitle: lp?.jobSpec?.title ?? "Pipeline",
+            company: "",
+            candidates: [],
+            agents: [],
+            status: "active",
+            createdAt: new Date().toISOString(),
+            currentAgentId: "coordinator",
+            requiresHumanApproval: true,
+            marketIntelligence: lp?.marketIntelligence,
+          }}
+          onClose={() => setShowApproval(false)}
+        />
       )}
     </div>
   );
