@@ -75,8 +75,18 @@ router.post("/:id/approve", (req: Request, res: Response) => {
     return;
   }
 
+  const stageProgression: Record<string, string> = {
+    market: "sourcing",
+    sourcing: "screening",
+    screening: "completed",
+  };
+
+  const nextStage =
+    stageProgression[pipeline.currentStage] ?? pipeline.currentStage;
+
+  pipeline.currentStage = nextStage;
   pipeline.requiresHumanApproval = false;
-  pipeline.log.push("Human: Approved — pipeline continuing");
+  pipeline.log.push(`Human: Approved — moving to ${nextStage}`);
   pipelines.set(id, pipeline);
 
   res.json({ message: "Approved", pipeline });

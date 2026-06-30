@@ -20,6 +20,7 @@ interface CandidateStore {
   candidates: ScoredCandidate[];
   addCandidate: (candidate: ScoredCandidate) => void;
   updateStage: (id: string, stage: ScoredCandidate["stage"]) => void;
+  removeCandidate: (id: string) => void;
   clearAll: () => void;
 }
 
@@ -34,13 +35,17 @@ export const useCandidateStore = create<CandidateStore>()(
       updateStage: (id, stage) =>
         set((state) => ({
           candidates: state.candidates.map((c) =>
-            c.id === id ? { ...c, stage } : c
+            c.id === id ? { ...c, stage } : c,
           ),
+        })),
+      removeCandidate: (id) =>
+        set((state) => ({
+          candidates: state.candidates.filter((c) => c.id !== id),
         })),
       clearAll: () => set({ candidates: [] }),
     }),
     {
       name: "tryb3-candidates",
-    }
-  )
+    },
+  ),
 );

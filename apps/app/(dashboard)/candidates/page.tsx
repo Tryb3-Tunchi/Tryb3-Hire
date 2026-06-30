@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useCandidateStore, ScoredCandidate } from "@/lib/store/candidateStore";
 import ScreeningChat from "@/components/pipeline/ScreeningChat";
-import { Flag, ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { Flag, ChevronDown, ChevronUp, MessageSquare, X } from "lucide-react";
 
 const stageColors: Record<string, string> = {
   sourced: "#4B5563",
@@ -23,6 +23,7 @@ const recommendationConfig: Record<string, { color: string; label: string }> = {
 
 export default function CandidatesPage() {
   const candidates = useCandidateStore((s) => s.candidates);
+  const removeCandidate = useCandidateStore((s) => s.removeCandidate);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
   const [screeningId, setScreeningId] = useState<string | null>(null);
@@ -85,13 +86,29 @@ export default function CandidatesPage() {
                       >
                         {candidate.name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-text-primary">
-                          {candidate.name}
-                        </p>
-                        <p className="mono text-xs text-text-muted">
-                          {candidate.email}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full ...">
+                          {candidate.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">
+                            {candidate.name}
+                          </p>
+                          <p className="mono text-xs text-text-muted">
+                            {candidate.email}
+                          </p>
+                        </div>
+                        <button
+  onClick={(e) => {
+    e.stopPropagation();
+    removeCandidate(candidate.id);
+  }}
+  className="ml-2 w-7 h-7 rounded-lg border border-border-main
+             flex items-center justify-center cursor-pointer
+             hover:bg-bg-hover transition-colors flex-shrink-0"
+>
+  <X size={12} className="text-text-muted" />
+</button>
                       </div>
                     </div>
 
@@ -240,9 +257,9 @@ export default function CandidatesPage() {
                           setScreeningName(candidate.name);
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5
-                                   rounded-lg border border-border-main
-                                   mono text-xs text-text-secondary
-                                   hover:bg-bg-hover transition-colors cursor-pointer"
+             rounded-lg border border-border-main
+             mono text-xs text-text-secondary
+             hover:bg-bg-hover transition-colors cursor-pointer"
                       >
                         <MessageSquare size={11} />
                         {isScreening ? "Close chat" : "Screen candidate"}

@@ -1,4 +1,3 @@
-// import { callQwen } from "../services/qwenService";
 import { JobSpec, runIntakeAgent } from "./intakeAgent";
 import { runMarketAgent, MarketIntelligence } from "./marketAgent";
 
@@ -44,8 +43,6 @@ export async function runCoordinatorAgent(
           `Coordinator: Skills identified — ${state.jobSpec.requiredSkills.join(", ")}`,
         );
         state.currentStage = "market";
-
-        // Continue to next stage automatically
         return runCoordinatorAgent(state);
       } catch (err) {
         state.log.push(`Coordinator: Intake Agent failed — ${err}`);
@@ -77,12 +74,11 @@ export async function runCoordinatorAgent(
 
     case "sourcing": {
       state.log.push(
-        "Coordinator: Sourcing Agent active — candidates being scored",
+        "Coordinator: Sourcing Agent active — awaiting candidate scoring",
       );
-      // After human proceeds from sourcing
-      state.currentStage = "screening";
-      state.requiresHumanApproval = false;
-      state.log.push("Coordinator: Moving to screening phase");
+      state.requiresHumanApproval = true;
+      state.humanApprovalReason =
+        "Score candidates, then approve to move to screening";
       return state;
     }
 
@@ -93,6 +89,12 @@ export async function runCoordinatorAgent(
       state.requiresHumanApproval = true;
       state.humanApprovalReason =
         "Screening complete — approve final shortlist";
+      return state;
+    }
+
+    case "completed": {
+      state.log.push("Coordinator: Pipeline completed — all agents finished");
+      state.requiresHumanApproval = false;
       return state;
     }
 
