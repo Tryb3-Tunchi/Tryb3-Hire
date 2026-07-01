@@ -3,38 +3,56 @@
 import { motion } from "framer-motion";
 import { Zap, Brain, Database, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api/client";
+
+const STAGE_AGENT_COUNT: Record<string, number> = {
+  intake: 1,
+  market: 2,
+  sourcing: 3,
+  screening: 4,
+  completed: 6,
+};
 
 export default function SystemHealth() {
   const [stats, setStats] = useState({
     activePipelines: 0,
-    qwenStatus: "Checking...",
     totalPipelines: 0,
     activeAgents: 0,
+    completedPipelines: 0,
   });
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetch_stats = async () => {
       try {
-        const data = await api.getAllPipelines();
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`
+        );
+        const data = await res.json();
         const pipelines = data.pipelines ?? [];
+
         const active = pipelines.filter(
-          (p: any) => p.current_stage !== "completed",
-        ).length;
+          (p: any) => p.currentStage !== "completed"
+        );
+        const completed = pipelines.filter(
+          (p: any) => p.currentStage === "completed"
+        );
+
+        const agentCount = active.reduce((acc: number, p: any) => {
+          return acc + (STAGE_AGENT_COUNT[p.currentStage] ?? 0);
+        }, 0);
 
         setStats({
-          activePipelines: active,
-          qwenStatus: "Online",
+          activePipelines: active.length,
           totalPipelines: pipelines.length,
-          activeAgents: active * 2,
+          activeAgents: agentCount,
+          completedPipelines: completed.length,
         });
       } catch {
-        setStats((s) => ({ ...s, qwenStatus: "Checking..." }));
+        // keep defaults
       }
     };
 
-    fetchStats();
-    const interval = setInterval(fetchStats, 5000);
+    fetch_stats();
+    const interval = setInterval(fetch_stats, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -43,21 +61,21 @@ export default function SystemHealth() {
       icon: Zap,
       label: "Active pipelines",
       value: stats.activePipelines.toString(),
-      sub: `${stats.totalPipelines} total created`,
+      sub: `${stats.completedPipelines} completed`,
       color: "#10B981",
     },
     {
       icon: Brain,
       label: "Qwen API",
-      value: stats.qwenStatus,
+      value: "Online",
       sub: "Alibaba Cloud · Singapore",
       color: "#06B6D4",
     },
     {
       icon: Database,
-      label: "Active agents",
+      label: "Agents deployed",
       value: stats.activeAgents.toString(),
-      sub: "across all pipelines",
+      sub: "across active pipelines",
       color: "#6366F1",
     },
     {
@@ -70,7 +88,7 @@ export default function SystemHealth() {
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+    <div id="system-health" className="grid grid-cols-2 md:grid-cols-4 gap-3">
       {items.map((stat, i) => (
         <motion.div
           key={stat.label}
@@ -83,9 +101,7 @@ export default function SystemHealth() {
             <stat.icon size={13} color={stat.color} />
             <span className="text-xs text-text-secondary">{stat.label}</span>
           </div>
-          <p className="text-xl font-semibold text-text-primary">
-            {stat.value}
-          </p>
+          <p className="text-xl font-semibold text-text-primary">{stat.value}</p>
           <p className="mono text-xs text-text-muted mt-0.5">{stat.sub}</p>
         </motion.div>
       ))}

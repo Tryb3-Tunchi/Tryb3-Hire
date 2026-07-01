@@ -22,8 +22,8 @@ const recommendationConfig: Record<string, { color: string; label: string }> = {
 };
 
 export default function CandidatesPage() {
-  const candidates = useCandidateStore(s => s.candidates);
-  const removeCandidate = useCandidateStore(s => s.removeCandidate);
+  const candidates = useCandidateStore((s) => s.candidates);
+  const removeCandidate = useCandidateStore((s) => s.removeCandidate);
   const [screeningId, setScreeningId] = useState<string | null>(null);
   const [screeningName, setScreeningName] = useState("");
   const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
@@ -34,11 +34,11 @@ export default function CandidatesPage() {
     const checkStage = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`,
         );
         const data = await res.json();
         const screeningPipeline = data.pipelines?.find(
-          (p: any) => p.currentStage === "screening"
+          (p: any) => p.currentStage === "screening",
         );
         if (screeningPipeline) setPipelineStage("screening");
       } catch {
@@ -55,7 +55,6 @@ export default function CandidatesPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-
       {/* Toast notification */}
       <AnimatePresence>
         {toast && (
@@ -90,33 +89,43 @@ export default function CandidatesPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 rounded-xl border flex items-center justify-between"
+          className="mb-6 p-4 rounded-xl border"
           style={{
             borderColor: "rgba(99,102,241,0.3)",
             backgroundColor: "rgba(99,102,241,0.05)",
           }}
         >
-          <div>
-            <p className="text-sm font-semibold text-text-primary">
-              Screening Agent is active
-            </p>
-            <p className="mono text-xs text-text-muted mt-0.5">
-              Click Screen candidate below to start interviewing
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-semibold text-text-primary mb-1">
+                Screening Agent is active
+              </p>
+              <p className="mono text-xs text-text-muted leading-relaxed">
+                Step 1: Click Screen candidate on each person below and conduct
+                the interview conversation. You are asking questions on behalf
+                of the recruiter — the AI responds as the screening agent.
+              </p>
+              <p className="mono text-xs mt-2" style={{ color: "#6366F1" }}>
+                Step 2: When done screening all candidates, go back to the
+                Pipeline page and click Mark screening complete.
+              </p>
+            </div>
+            <motion.div
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-2 h-2 rounded-full mt-1 flex-shrink-0 ml-4"
+              style={{ backgroundColor: "#6366F1" }}
+            />
           </div>
-          <motion.div
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: "#6366F1" }}
-          />
         </motion.div>
       )}
 
       {/* Empty state */}
       {candidates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48
-                        border border-border-main rounded-xl border-dashed">
+        <div
+          className="flex flex-col items-center justify-center h-48
+                        border border-border-main rounded-xl border-dashed"
+        >
           <p className="text-text-muted text-sm mb-2">No candidates yet</p>
           <p className="mono text-xs text-text-muted text-center max-w-xs">
             Go to a pipeline in sourcing stage and add candidate profiles
@@ -125,8 +134,10 @@ export default function CandidatesPage() {
       ) : (
         <div className="space-y-3">
           {candidates.map((candidate, i) => {
-            const rec = recommendationConfig[candidate.recommendation] ??
-              { color: "#4B5563", label: candidate.recommendation };
+            const rec = recommendationConfig[candidate.recommendation] ?? {
+              color: "#4B5563",
+              label: candidate.recommendation,
+            };
             const isExpanded = expandedTrace === candidate.id;
             const isScreening = screeningId === candidate.id;
 
@@ -141,7 +152,6 @@ export default function CandidatesPage() {
                 {/* Card header */}
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-4">
-
                     {/* Left — avatar and name */}
                     <div className="flex items-center gap-3">
                       <div
@@ -178,11 +188,12 @@ export default function CandidatesPage() {
                         <p
                           className="text-2xl font-bold"
                           style={{
-                            color: candidate.score >= 80
-                              ? "#10B981"
-                              : candidate.score >= 60
-                              ? "#F59E0B"
-                              : "#EF4444",
+                            color:
+                              candidate.score >= 80
+                                ? "#10B981"
+                                : candidate.score >= 60
+                                  ? "#F59E0B"
+                                  : "#EF4444",
                           }}
                         >
                           {candidate.score}
@@ -220,11 +231,12 @@ export default function CandidatesPage() {
                         transition={{ duration: 0.8, delay: i * 0.06 }}
                         className="h-full rounded-full"
                         style={{
-                          background: candidate.score >= 80
-                            ? "linear-gradient(90deg, #059669, #10B981)"
-                            : candidate.score >= 60
-                            ? "linear-gradient(90deg, #D97706, #F59E0B)"
-                            : "linear-gradient(90deg, #DC2626, #EF4444)",
+                          background:
+                            candidate.score >= 80
+                              ? "linear-gradient(90deg, #059669, #10B981)"
+                              : candidate.score >= 60
+                                ? "linear-gradient(90deg, #D97706, #F59E0B)"
+                                : "linear-gradient(90deg, #DC2626, #EF4444)",
                         }}
                       />
                     </div>
@@ -250,8 +262,10 @@ export default function CandidatesPage() {
                       </div>
                     </div>
                     <div>
-                      <p className="mono text-xs mb-2"
-                         style={{ color: "#EF4444" }}>
+                      <p
+                        className="mono text-xs mb-2"
+                        style={{ color: "#EF4444" }}
+                      >
                         Gaps
                       </p>
                       <div className="flex flex-wrap gap-1.5">
@@ -298,10 +312,11 @@ export default function CandidatesPage() {
                                    text-text-muted hover:text-text-secondary
                                    cursor-pointer transition-colors"
                       >
-                        {isExpanded
-                          ? <ChevronUp size={12} />
-                          : <ChevronDown size={12} />
-                        }
+                        {isExpanded ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        )}
                         Reasoning trace
                       </button>
 
@@ -312,7 +327,9 @@ export default function CandidatesPage() {
                           } else {
                             setScreeningId(candidate.id);
                             setScreeningName(candidate.name);
-                            showToast(`Screening Agent activated for ${candidate.name}`);
+                            showToast(
+                              `Screening Agent activated for ${candidate.name}`,
+                            );
                           }
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5
