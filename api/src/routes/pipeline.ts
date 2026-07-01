@@ -121,16 +121,19 @@ router.post("/:id/approve", (req: Request, res: Response) => {
   const candidates = pipelineCandidates.get(id) ?? [];
 
   // Strict validation per stage
-  if (pipeline.currentStage === "sourcing") {
-    if (candidates.length === 0) {
-      res.status(400).json({
-        error:
-          "You must score at least one candidate before approving the sourcing stage",
-      });
-      return;
-    }
-  }
+ // Only block approval if we're in sourcing AND 
+// the approval reason is about the shortlist (not market findings)
+if (pipeline.currentStage === "sourcing") {
+  const isShortlistApproval = pipeline.humanApprovalReason?.includes("shortlist") ||
+    pipeline.humanApprovalReason?.includes("Score candidates");
 
+  if (isShortlistApproval && candidates.length === 0) {
+    res.status(400).json({
+      error: "You must score at least one candidate before approving the shortlist",
+    });
+    return;
+  }
+}
   const stageProgression: Record<string, string> = {
     market: "sourcing",
     sourcing: "screening",

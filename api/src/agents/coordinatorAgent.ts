@@ -61,10 +61,11 @@ export async function runCoordinatorAgent(
         state.log.push(
           `Coordinator: Salary range ${state.marketIntelligence.salaryRange.min}-${state.marketIntelligence.salaryRange.max} ${state.marketIntelligence.salaryRange.currency}`,
         );
-        state.currentStage = "sourcing";
+        // Stay at market stage — wait for human approval before sourcing
+        state.currentStage = "market";
         state.requiresHumanApproval = true;
         state.humanApprovalReason =
-          "Market research complete — approve to begin candidate sourcing";
+          "Review market findings — approve to begin candidate sourcing";
         return state;
       } catch (err) {
         state.log.push(`Coordinator: Market Agent failed — ${err}`);
