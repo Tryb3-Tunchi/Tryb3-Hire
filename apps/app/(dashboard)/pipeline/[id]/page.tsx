@@ -172,6 +172,19 @@ export default function PipelineDetailPage() {
 
   const addCandidate = useCandidateStore((s) => s.addCandidate);
 
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" = "info",
+  ) => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
+
   const lp = livePipeline as any;
   const currentStage = lp?.currentStage ?? "intake";
   const currentIndex = stageIndex[currentStage] ?? 0;
@@ -261,6 +274,41 @@ export default function PipelineDetailPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl
+                 border shadow-lg max-w-sm"
+            style={{
+              backgroundColor: "var(--color-bg-card)",
+              borderColor:
+                toast.type === "error"
+                  ? "rgba(239,68,68,0.4)"
+                  : toast.type === "success"
+                    ? "rgba(16,185,129,0.4)"
+                    : "rgba(99,102,241,0.4)",
+            }}
+          >
+            <p
+              className="mono text-xs"
+              style={{
+                color:
+                  toast.type === "error"
+                    ? "#EF4444"
+                    : toast.type === "success"
+                      ? "#10B981"
+                      : "#6366F1",
+              }}
+            >
+              {toast.message}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Back */}
       <Link
         href="/dashboard"
@@ -821,9 +869,16 @@ export default function PipelineDetailPage() {
               whileHover={{ scale: scoredCandidates.length > 0 ? 1.02 : 1 }}
               whileTap={{ scale: scoredCandidates.length > 0 ? 0.98 : 1 }}
               onClick={async () => {
-                if (scoredCandidates.length === 0) return;
+                if (scoredCandidates.length === 0) {
+                  showToast(
+                    "Add at least one candidate before proceeding",
+                    "error",
+                  );
+                  return;
+                }
 
-                // Save all candidates to backend first
+                showToast("Saving candidates...", "info");
+
                 for (const candidate of scoredCandidates) {
                   await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
@@ -835,7 +890,6 @@ export default function PipelineDetailPage() {
                   );
                 }
 
-                // Then approve
                 const res = await fetch(
                   `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
                   { method: "POST" },
@@ -844,11 +898,17 @@ export default function PipelineDetailPage() {
                 const data = await res.json();
 
                 if (!res.ok) {
-                  alert(data.error);
+                  showToast(data.error, "error");
                   return;
                 }
 
-                window.location.href = `/candidates`;
+                showToast(
+                  "Shortlist approved — moving to screening",
+                  "success",
+                );
+                setTimeout(() => {
+                  window.location.href = `/candidates`;
+                }, 1500);
               }}
               disabled={scoredCandidates.length === 0}
               className="px-4 py-2 rounded-lg text-xs font-medium border-0

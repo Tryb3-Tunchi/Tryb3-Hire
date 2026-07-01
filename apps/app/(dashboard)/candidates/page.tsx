@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { useCandidateStore, ScoredCandidate } from "@/lib/store/candidateStore";
+import { useCandidateStore } from "@/lib/store/candidateStore";
 import ScreeningChat from "@/components/pipeline/ScreeningChat";
 import { Flag, ChevronDown, ChevronUp, MessageSquare, X } from "lucide-react";
 
@@ -21,30 +21,26 @@ const recommendationConfig: Record<string, { color: string; label: string }> = {
   no: { color: "#EF4444", label: "No" },
 };
 
-const [pipelineStage, setPipelineStage] = useState<string | null>(null);
-
 export default function CandidatesPage() {
-  const candidates = useCandidateStore((s) => s.candidates);
-  const removeCandidate = useCandidateStore((s) => s.removeCandidate);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
+  const candidates = useCandidateStore(s => s.candidates);
+  const removeCandidate = useCandidateStore(s => s.removeCandidate);
   const [screeningId, setScreeningId] = useState<string | null>(null);
   const [screeningName, setScreeningName] = useState("");
+  const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
+  const [pipelineStage, setPipelineStage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if any pipeline is in screening stage
     const checkStage = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`
         );
         const data = await res.json();
         const screeningPipeline = data.pipelines?.find(
-          (p: any) => p.currentStage === "screening",
+          (p: any) => p.currentStage === "screening"
         );
-        if (screeningPipeline) {
-          setPipelineStage("screening");
-        }
+        if (screeningPipeline) setPipelineStage("screening");
       } catch {
         // ignore
       }
@@ -52,14 +48,34 @@ export default function CandidatesPage() {
     checkStage();
   }, []);
 
-  const selected = candidates.find((c) => c.id === selectedId);
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   return (
     <div className="max-w-5xl mx-auto">
+
+      {/* Toast notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl
+                       border border-border-main bg-bg-card shadow-lg"
+          >
+            <p className="mono text-xs text-text-primary">{toast}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-6"
       >
         <h1 className="text-2xl font-bold text-text-primary tracking-tight">
           Candidates
@@ -69,6 +85,7 @@ export default function CandidatesPage() {
         </p>
       </motion.div>
 
+      {/* Screening stage banner */}
       {pipelineStage === "screening" && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
@@ -81,37 +98,35 @@ export default function CandidatesPage() {
         >
           <div>
             <p className="text-sm font-semibold text-text-primary">
-              Screening stage active
+              Screening Agent is active
             </p>
             <p className="mono text-xs text-text-muted mt-0.5">
-              Click Screen candidate on any candidate below to start the
-              Screening Agent
+              Click Screen candidate below to start interviewing
             </p>
           </div>
-          <div
+          <motion.div
+            animate={{ opacity: [1, 0.3, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
             className="w-2 h-2 rounded-full"
             style={{ backgroundColor: "#6366F1" }}
           />
         </motion.div>
       )}
 
+      {/* Empty state */}
       {candidates.length === 0 ? (
-        <div
-          className="flex flex-col items-center justify-center h-48
-                        border border-border-main rounded-xl border-dashed"
-        >
+        <div className="flex flex-col items-center justify-center h-48
+                        border border-border-main rounded-xl border-dashed">
           <p className="text-text-muted text-sm mb-2">No candidates yet</p>
           <p className="mono text-xs text-text-muted text-center max-w-xs">
-            Go to a pipeline in sourcing stage and add candidates to score them
+            Go to a pipeline in sourcing stage and add candidate profiles
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {candidates.map((candidate, i) => {
-            const rec = recommendationConfig[candidate.recommendation] ?? {
-              color: "#4B5563",
-              label: candidate.recommendation,
-            };
+            const rec = recommendationConfig[candidate.recommendation] ??
+              { color: "#4B5563", label: candidate.recommendation };
             const isExpanded = expandedTrace === candidate.id;
             const isScreening = screeningId === candidate.id;
 
@@ -126,6 +141,8 @@ export default function CandidatesPage() {
                 {/* Card header */}
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-4">
+
+                    {/* Left — avatar and name */}
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-full flex items-center
@@ -135,34 +152,18 @@ export default function CandidatesPage() {
                       >
                         {candidate.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full ...">
-                          {candidate.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-text-primary">
-                            {candidate.name}
-                          </p>
-                          <p className="mono text-xs text-text-muted">
-                            {candidate.email}
-                          </p>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeCandidate(candidate.id);
-                          }}
-                          className="ml-2 w-7 h-7 rounded-lg border border-border-main
-             flex items-center justify-center cursor-pointer
-             hover:bg-bg-hover transition-colors flex-shrink-0"
-                        >
-                          <X size={12} className="text-text-muted" />
-                        </button>
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">
+                          {candidate.name}
+                        </p>
+                        <p className="mono text-xs text-text-muted">
+                          {candidate.email}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {/* Recommendation badge */}
+                    {/* Right — score + delete */}
+                    <div className="flex items-center gap-3">
                       <span
                         className="mono text-xs px-2 py-1 rounded-md font-medium"
                         style={{
@@ -173,24 +174,32 @@ export default function CandidatesPage() {
                       >
                         {rec.label}
                       </span>
-
-                      {/* Score */}
                       <div className="text-right">
                         <p
                           className="text-2xl font-bold"
                           style={{
-                            color:
-                              candidate.score >= 80
-                                ? "#10B981"
-                                : candidate.score >= 60
-                                  ? "#F59E0B"
-                                  : "#EF4444",
+                            color: candidate.score >= 80
+                              ? "#10B981"
+                              : candidate.score >= 60
+                              ? "#F59E0B"
+                              : "#EF4444",
                           }}
                         >
                           {candidate.score}
                         </p>
                         <p className="mono text-xs text-text-muted">/ 100</p>
                       </div>
+                      <button
+                        onClick={() => {
+                          removeCandidate(candidate.id);
+                          showToast(`${candidate.name} removed`);
+                        }}
+                        className="w-7 h-7 rounded-lg border border-border-main
+                                   flex items-center justify-center cursor-pointer
+                                   hover:bg-bg-hover transition-colors"
+                      >
+                        <X size={12} className="text-text-muted" />
+                      </button>
                     </div>
                   </div>
 
@@ -211,12 +220,11 @@ export default function CandidatesPage() {
                         transition={{ duration: 0.8, delay: i * 0.06 }}
                         className="h-full rounded-full"
                         style={{
-                          background:
-                            candidate.score >= 80
-                              ? "linear-gradient(90deg, #059669, #10B981)"
-                              : candidate.score >= 60
-                                ? "linear-gradient(90deg, #D97706, #F59E0B)"
-                                : "linear-gradient(90deg, #DC2626, #EF4444)",
+                          background: candidate.score >= 80
+                            ? "linear-gradient(90deg, #059669, #10B981)"
+                            : candidate.score >= 60
+                            ? "linear-gradient(90deg, #D97706, #F59E0B)"
+                            : "linear-gradient(90deg, #DC2626, #EF4444)",
                         }}
                       />
                     </div>
@@ -242,10 +250,8 @@ export default function CandidatesPage() {
                       </div>
                     </div>
                     <div>
-                      <p
-                        className="mono text-xs text-text-muted mb-2"
-                        style={{ color: "#EF4444" }}
-                      >
+                      <p className="mono text-xs mb-2"
+                         style={{ color: "#EF4444" }}>
                         Gaps
                       </p>
                       <div className="flex flex-wrap gap-1.5">
@@ -271,13 +277,13 @@ export default function CandidatesPage() {
                     </div>
                   </div>
 
-                  {/* Stage + Actions */}
+                  {/* Stage badge + actions */}
                   <div className="flex items-center justify-between">
                     <span
                       className="mono text-xs px-2 py-0.5 rounded capitalize"
                       style={{
-                        color: stageColors[candidate.stage],
-                        backgroundColor: `${stageColors[candidate.stage]}15`,
+                        color: stageColors[candidate.stage] ?? "#4B5563",
+                        backgroundColor: `${stageColors[candidate.stage] ?? "#4B5563"}15`,
                       }}
                     >
                       {candidate.stage}
@@ -292,23 +298,27 @@ export default function CandidatesPage() {
                                    text-text-muted hover:text-text-secondary
                                    cursor-pointer transition-colors"
                       >
-                        {isExpanded ? (
-                          <ChevronUp size={12} />
-                        ) : (
-                          <ChevronDown size={12} />
-                        )}
+                        {isExpanded
+                          ? <ChevronUp size={12} />
+                          : <ChevronDown size={12} />
+                        }
                         Reasoning trace
                       </button>
 
                       <button
                         onClick={() => {
-                          setScreeningId(isScreening ? null : candidate.id);
-                          setScreeningName(candidate.name);
+                          if (isScreening) {
+                            setScreeningId(null);
+                          } else {
+                            setScreeningId(candidate.id);
+                            setScreeningName(candidate.name);
+                            showToast(`Screening Agent activated for ${candidate.name}`);
+                          }
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5
-             rounded-lg border border-border-main
-             mono text-xs text-text-secondary
-             hover:bg-bg-hover transition-colors cursor-pointer"
+                                   rounded-lg border border-border-main
+                                   mono text-xs text-text-secondary
+                                   hover:bg-bg-hover transition-colors cursor-pointer"
                       >
                         <MessageSquare size={11} />
                         {isScreening ? "Close chat" : "Screen candidate"}
@@ -317,7 +327,7 @@ export default function CandidatesPage() {
                   </div>
                 </div>
 
-                {/* Reasoning trace expandable */}
+                {/* Reasoning trace */}
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.div
@@ -345,7 +355,7 @@ export default function CandidatesPage() {
                   )}
                 </AnimatePresence>
 
-                {/* Screening chat expandable */}
+                {/* Screening chat */}
                 <AnimatePresence>
                   {isScreening && (
                     <motion.div
