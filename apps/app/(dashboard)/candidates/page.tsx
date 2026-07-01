@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCandidateStore, ScoredCandidate } from "@/lib/store/candidateStore";
 import ScreeningChat from "@/components/pipeline/ScreeningChat";
 import { Flag, ChevronDown, ChevronUp, MessageSquare, X } from "lucide-react";
@@ -21,6 +21,8 @@ const recommendationConfig: Record<string, { color: string; label: string }> = {
   no: { color: "#EF4444", label: "No" },
 };
 
+const [pipelineStage, setPipelineStage] = useState<string | null>(null);
+
 export default function CandidatesPage() {
   const candidates = useCandidateStore((s) => s.candidates);
   const removeCandidate = useCandidateStore((s) => s.removeCandidate);
@@ -28,6 +30,27 @@ export default function CandidatesPage() {
   const [expandedTrace, setExpandedTrace] = useState<string | null>(null);
   const [screeningId, setScreeningId] = useState<string | null>(null);
   const [screeningName, setScreeningName] = useState("");
+
+  useEffect(() => {
+    // Check if any pipeline is in screening stage
+    const checkStage = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines`,
+        );
+        const data = await res.json();
+        const screeningPipeline = data.pipelines?.find(
+          (p: any) => p.currentStage === "screening",
+        );
+        if (screeningPipeline) {
+          setPipelineStage("screening");
+        }
+      } catch {
+        // ignore
+      }
+    };
+    checkStage();
+  }, []);
 
   const selected = candidates.find((c) => c.id === selectedId);
 
@@ -45,6 +68,32 @@ export default function CandidatesPage() {
           {candidates.length} candidates scored by the Sourcing Agent
         </p>
       </motion.div>
+
+      {pipelineStage === "screening" && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 p-4 rounded-xl border flex items-center justify-between"
+          style={{
+            borderColor: "rgba(99,102,241,0.3)",
+            backgroundColor: "rgba(99,102,241,0.05)",
+          }}
+        >
+          <div>
+            <p className="text-sm font-semibold text-text-primary">
+              Screening stage active
+            </p>
+            <p className="mono text-xs text-text-muted mt-0.5">
+              Click Screen candidate on any candidate below to start the
+              Screening Agent
+            </p>
+          </div>
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: "#6366F1" }}
+          />
+        </motion.div>
+      )}
 
       {candidates.length === 0 ? (
         <div
@@ -99,16 +148,16 @@ export default function CandidatesPage() {
                           </p>
                         </div>
                         <button
-  onClick={(e) => {
-    e.stopPropagation();
-    removeCandidate(candidate.id);
-  }}
-  className="ml-2 w-7 h-7 rounded-lg border border-border-main
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeCandidate(candidate.id);
+                          }}
+                          className="ml-2 w-7 h-7 rounded-lg border border-border-main
              flex items-center justify-center cursor-pointer
              hover:bg-bg-hover transition-colors flex-shrink-0"
->
-  <X size={12} className="text-text-muted" />
-</button>
+                        >
+                          <X size={12} className="text-text-muted" />
+                        </button>
                       </div>
                     </div>
 

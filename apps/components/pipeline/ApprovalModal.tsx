@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Pipeline } from "@/lib/types";
 import { X, CheckCircle, XCircle } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   pipeline: Pipeline;
@@ -10,16 +11,33 @@ interface Props {
 }
 
 export default function ApprovalModal({ pipeline, onClose }: Props) {
+  const [isApproving, setIsApproving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   const handleApprove = async () => {
+    if (isApproving) return;
+    setIsApproving(true);
+    setError(null);
+
     try {
-      await fetch(
+      const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipeline.id}/approve`,
         { method: "POST" },
       );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error);
+        setIsApproving(false);
+        return;
+      }
+
       onClose();
       window.location.reload();
     } catch {
-      console.error("Approval failed");
+      setError("Network error — please try again");
+      setIsApproving(false);
     }
   };
 
@@ -103,16 +121,31 @@ export default function ApprovalModal({ pipeline, onClose }: Props) {
 
           {/* Actions */}
           <div className="flex gap-3">
+            {/* Error message */}
+            {error && (
+              <div
+                className="mb-4 p-3 rounded-lg border mono text-xs"
+                style={{
+                  borderColor: "rgba(239,68,68,0.3)",
+                  backgroundColor: "rgba(239,68,68,0.05)",
+                  color: "#EF4444",
+                }}
+              >
+                {error}
+              </div>
+            )}
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: isApproving ? 1 : 1.02 }}
+              whileTap={{ scale: isApproving ? 1 : 0.97 }}
               onClick={handleApprove}
+              disabled={isApproving}
               className="flex-1 flex items-center justify-center gap-2 py-2.5
-                         rounded-lg bg-accent text-white text-sm font-medium
-                         cursor-pointer border-0"
+             rounded-lg bg-accent text-white text-sm font-medium
+             cursor-pointer border-0 disabled:opacity-50
+             disabled:cursor-not-allowed"
             >
               <CheckCircle size={14} />
-              Approve and continue
+              {isApproving ? "Approving..." : "Approve and continue"}
             </motion.button>
 
             <motion.button

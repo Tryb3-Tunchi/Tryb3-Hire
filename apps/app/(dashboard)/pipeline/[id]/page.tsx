@@ -797,36 +797,96 @@ export default function PipelineDetailPage() {
       )}
 
       {/* Proceed to screening */}
-      {scoredCandidates.length > 0 && currentStage === "sourcing" && (
+      {currentStage === "sourcing" && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-4 p-4 rounded-xl border border-border-main
-               bg-bg-secondary flex items-center justify-between"
+          className="mt-4 p-4 rounded-xl border border-border-main bg-bg-secondary"
         >
-          <div>
-            <p className="text-sm font-medium text-text-primary">
-              {scoredCandidates.length} candidates scored
-            </p>
-            <p className="mono text-xs text-text-muted mt-0.5">
-              Ready to proceed to screening phase
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-text-primary">
+                {scoredCandidates.length === 0
+                  ? "No candidates scored yet"
+                  : `${scoredCandidates.length} candidate(s) scored`}
+              </p>
+              <p className="mono text-xs text-text-muted mt-0.5">
+                {scoredCandidates.length === 0
+                  ? "Add at least one candidate before proceeding"
+                  : "Ready to proceed to screening phase"}
+              </p>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: scoredCandidates.length > 0 ? 1.02 : 1 }}
+              whileTap={{ scale: scoredCandidates.length > 0 ? 0.98 : 1 }}
+              onClick={async () => {
+                if (scoredCandidates.length === 0) return;
+
+                // Save all candidates to backend first
+                for (const candidate of scoredCandidates) {
+                  await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(candidate),
+                    },
+                  );
+                }
+
+                // Then approve
+                const res = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
+                  { method: "POST" },
+                );
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                  alert(data.error);
+                  return;
+                }
+
+                window.location.href = `/candidates`;
+              }}
+              disabled={scoredCandidates.length === 0}
+              className="px-4 py-2 rounded-lg text-xs font-medium border-0
+                   cursor-pointer transition-all"
+              style={{
+                backgroundColor:
+                  scoredCandidates.length > 0
+                    ? "var(--color-accent)"
+                    : "var(--color-border)",
+                color:
+                  scoredCandidates.length > 0
+                    ? "#fff"
+                    : "var(--color-text-muted)",
+                cursor:
+                  scoredCandidates.length === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              {scoredCandidates.length === 0
+                ? "Add candidates first"
+                : "Approve shortlist → Screening"}
+            </motion.button>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={async () => {
-              await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
-                { method: "POST" },
-              );
-              window.location.reload();
-            }}
-            className="px-4 py-2 rounded-lg bg-accent text-white
-                 text-xs font-medium border-0 cursor-pointer"
-          >
-            Proceed to screening →
-          </motion.button>
+
+          {/* Conflict warning */}
+          {scoredCandidates.some((c: any) => c.score < 70) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-3 p-3 rounded-lg border mono text-xs"
+              style={{
+                borderColor: "rgba(245,158,11,0.3)",
+                backgroundColor: "rgba(245,158,11,0.05)",
+                color: "#F59E0B",
+              }}
+            >
+              ⚠ Conflict Agent will review borderline candidates automatically
+            </motion.div>
+          )}
         </motion.div>
       )}
 
