@@ -49,7 +49,7 @@ router.post("/", async (req: Request, res: Response) => {
 });
 
 router.get("/", (req: Request, res: Response) => {
-  const all = Array.from(pipelines.values()).map(p => ({
+  const all = Array.from(pipelines.values()).map((p) => ({
     ...p,
     candidates: pipelineCandidates.get(p.id) ?? [],
   }));
@@ -94,7 +94,7 @@ router.post("/:id/candidates", (req: Request, res: Response) => {
   pipelineCandidates.set(id, candidates);
 
   pipeline.log.push(
-    `Sourcing Agent: Candidate ${candidate.name} scored ${candidate.score}/100 — ${candidate.recommendation}`
+    `Sourcing Agent: Candidate ${candidate.name} scored ${candidate.score}/100 — ${candidate.recommendation}`,
   );
   pipelines.set(id, pipeline);
 
@@ -124,7 +124,8 @@ router.post("/:id/approve", (req: Request, res: Response) => {
   if (pipeline.currentStage === "sourcing") {
     if (candidates.length === 0) {
       res.status(400).json({
-        error: "You must score at least one candidate before approving the sourcing stage",
+        error:
+          "You must score at least one candidate before approving the sourcing stage",
       });
       return;
     }
@@ -150,31 +151,68 @@ router.post("/:id/approve", (req: Request, res: Response) => {
   // Check if conflict is needed when moving to screening
   if (nextStage === "screening") {
     const flaggedCandidates = candidates.filter(
-      (c: any) => c.score < 70 || c.recommendation === "maybe" || c.recommendation === "no"
+      (c: any) =>
+        c.score < 70 ||
+        c.recommendation === "maybe" ||
+        c.recommendation === "no",
     );
 
     if (flaggedCandidates.length > 0) {
       pipeline.log.push(
-        `Conflict Agent: ${flaggedCandidates.length} candidate(s) flagged — running conflict resolution`
+        `Conflict Agent: ${flaggedCandidates.length} candidate(s) flagged — running conflict resolution`,
       );
       pipeline.conflictResolution = {
         flagged: flaggedCandidates.map((c: any) => ({
           name: c.name,
           score: c.score,
-          reason: c.recommendation === "no" ? "Below threshold" : "Borderline score",
+          reason:
+            c.recommendation === "no" ? "Below threshold" : "Borderline score",
         })),
         resolved: true,
         decision: "Proceeding with high-scoring candidates only",
       };
-      pipeline.log.push("Conflict Agent: Resolution complete — borderline candidates flagged for recruiter review");
+      pipeline.log.push(
+        "Conflict Agent: Resolution complete — borderline candidates flagged for recruiter review",
+      );
     }
   }
 
   // Set screening approval requirement
   if (nextStage === "screening") {
-    pipeline.requiresHumanApproval = true;
-    pipeline.humanApprovalReason = "Screen candidates via chat, then approve final shortlist";
+    pipeline.requiresHumanApproval = false;
+    pipeline.humanApprovalReason = null;
+    pipeline.log.push(
+      "Coordinator: Screening Agent ready — conduct candidate interviews then approve",
+    );
   }
+
+  // Recruiter marks screening as complete
+  router.post("/:id/screening-complete", (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const pipeline = pipelines.get(id);
+
+    if (!pipeline) {
+      res.status(404).json({ error: "Pipeline not found" });
+      return;
+    }
+
+    if (pipeline.currentStage !== "screening") {
+      res.status(400).json({
+        error: "Pipeline is not in screening stage",
+      });
+      return;
+    }
+
+    pipeline.requiresHumanApproval = true;
+    pipeline.humanApprovalReason =
+      "Screening complete — approve final shortlist to complete pipeline";
+    pipeline.log.push(
+      "Coordinator: Screening complete — awaiting final recruiter approval",
+    );
+    pipelines.set(id, pipeline);
+
+    res.json({ message: "Screening marked complete", pipeline });
+  });
 
   if (nextStage === "completed") {
     pipeline.log.push("Coordinator: Pipeline completed successfully");
@@ -185,7 +223,7 @@ router.post("/:id/approve", (req: Request, res: Response) => {
   res.json({
     message: "Approved",
     previousStage: Object.keys(stageProgression).find(
-      k => stageProgression[k] === nextStage
+      (k) => stageProgression[k] === nextStage,
     ),
     currentStage: nextStage,
     pipeline: { ...pipeline, candidates },

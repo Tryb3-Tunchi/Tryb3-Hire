@@ -1,145 +1,201 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePipelinePolling } from "@/lib/hooks/usePipelinePolling";
-import ReasoningTrace from "@/components/pipeline/ReasoningTrace";
 import ApprovalModal from "@/components/pipeline/ApprovalModal";
 import { useCandidateStore } from "@/lib/store/candidateStore";
-import { Agent } from "@/lib/types";
 import {
   ArrowLeft,
   AlertCircle,
   Loader,
   CheckCircle,
-  Clock,
   Circle,
   UserCheck,
   ChevronDown,
   ChevronUp,
   Plus,
   X,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 
-const AGENT_ORDER = [
-  { id: "intake", name: "Intake Agent", description: "Parses job description" },
+// ─── Agent definitions ────────────────────────────────────────────────────────
+const AGENTS = [
+  {
+    id: "intake",
+    name: "Intake",
+    fullName: "Intake Agent",
+    description: "Parses job description into structured spec using Qwen-Max",
+  },
   {
     id: "market",
-    name: "Market Agent",
-    description: "Researches talent market",
+    name: "Market",
+    fullName: "Market Intelligence Agent",
+    description:
+      "Researches salary benchmarks and talent supply using Qwen-Plus",
   },
-  { id: "sourcing", name: "Sourcing Agent", description: "Scores candidates" },
+  {
+    id: "sourcing",
+    name: "Sourcing",
+    fullName: "Sourcing & Scoring Agent",
+    description: "Scores candidates against job spec with full reasoning trace",
+  },
   {
     id: "screening",
-    name: "Screening Agent",
-    description: "Interviews candidates",
+    name: "Screening",
+    fullName: "Screening Agent",
+    description: "Conducts multi-turn interviews with persistent memory",
   },
   {
     id: "conflict",
-    name: "Conflict Agent",
-    description: "Resolves disagreements",
+    name: "Conflict",
+    fullName: "Conflict Resolution Agent",
+    description: "Mediates disagreements and flags borderline candidates",
   },
   {
     id: "coordinator",
     name: "Coordinator",
-    description: "Orchestrates pipeline",
+    fullName: "Coordinator Agent",
+    description: "Orchestrates all agents and manages pipeline state",
   },
 ];
 
-const stageIndex: Record<string, number> = {
-  intake: 0,
-  market: 1,
-  sourcing: 2,
-  screening: 3,
-  conflict: 4,
-  completed: 5,
-};
+// Stage order for progress tracking
+const STAGE_ORDER = ["intake", "market", "sourcing", "screening", "completed"];
 
+function getAgentStatus(
+  agentId: string,
+  currentStage: string,
+  requiresApproval: boolean,
+  hasConflict: boolean,
+): "completed" | "running" | "waiting" | "idle" {
+  const stageIdx = STAGE_ORDER.indexOf(currentStage);
+
+  if (agentId === "coordinator") {
+    return currentStage === "completed" ? "completed" : "running";
+  }
+
+  if (agentId === "conflict") {
+    if (currentStage === "completed") return "completed";
+    if (
+      hasConflict &&
+      (currentStage === "screening" || currentStage === "completed")
+    )
+      return "completed";
+    if (hasConflict) return "running";
+    return "idle";
+  }
+
+  const agentIdx = STAGE_ORDER.indexOf(agentId);
+
+  if (agentIdx < 0) return "idle";
+  if (currentStage === "completed") return "completed";
+  if (agentIdx < stageIdx) return "completed";
+  if (agentId === currentStage) {
+    return requiresApproval ? "waiting" : "running";
+  }
+  return "idle";
+}
+
+// ─── Agent Card Component ─────────────────────────────────────────────────────
 function AgentCard({
-  agentDef,
+  agent,
   status,
-  onClick,
   isSelected,
+  onClick,
 }: {
-  agentDef: { id: string; name: string; description: string };
-  status: "completed" | "running" | "idle" | "waiting";
-  onClick: () => void;
+  agent: (typeof AGENTS)[0];
+  status: "completed" | "running" | "waiting" | "idle";
   isSelected: boolean;
+  onClick: () => void;
 }) {
-  const configs = {
+  const config = {
     completed: {
       color: "#10B981",
-      icon: CheckCircle,
+      Icon: CheckCircle,
       label: "Done",
+      spin: false,
       pulse: false,
     },
-    running: { color: "#06B6D4", icon: Loader, label: "Running", pulse: true },
-    waiting: {
-      color: "#F59E0B",
-      icon: UserCheck,
-      label: "Waiting",
+    running: {
+      color: "#06B6D4",
+      Icon: Loader,
+      label: "Running",
+      spin: true,
       pulse: true,
     },
-    idle: { color: "#2A3347", icon: Circle, label: "Pending", pulse: false },
-  };
-  const config = configs[status];
-  const Icon = config.icon;
+    waiting: {
+      color: "#F59E0B",
+      Icon: UserCheck,
+      label: "Needs you",
+      spin: false,
+      pulse: true,
+    },
+    idle: {
+      color: "#2A3347",
+      Icon: Circle,
+      label: "Pending",
+      spin: false,
+      pulse: false,
+    },
+  }[status];
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onClick}
-      className="flex flex-col items-center gap-2 cursor-pointer p-3 
-                 rounded-xl border transition-all"
+      className="flex flex-col items-center gap-2 p-3 rounded-xl border
+                 cursor-pointer transition-all"
       style={{
         backgroundColor: isSelected
-          ? `${config.color}10`
+          ? `${config.color}12`
           : "var(--color-bg-secondary)",
-        borderColor: isSelected ? config.color : "var(--color-border)",
+        borderColor: isSelected ? `${config.color}60` : "var(--color-border)",
       }}
     >
-      {/* Icon circle */}
       <motion.div
         animate={
           config.pulse
             ? {
                 boxShadow: [
-                  `0 0 0px ${config.color}30`,
-                  `0 0 16px ${config.color}80`,
-                  `0 0 0px ${config.color}30`,
+                  `0 0 0px ${config.color}00`,
+                  `0 0 14px ${config.color}80`,
+                  `0 0 0px ${config.color}00`,
                 ],
               }
             : {}
         }
-        transition={{ duration: 1.5, repeat: Infinity }}
-        className="w-12 h-12 rounded-full flex items-center justify-center border-2"
+        transition={{ duration: 1.8, repeat: Infinity }}
+        className="w-11 h-11 rounded-full flex items-center justify-center border-2"
         style={{
           backgroundColor: `${config.color}15`,
           borderColor: `${config.color}50`,
         }}
       >
         <motion.div
-          animate={status === "running" ? { rotate: 360 } : {}}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          animate={config.spin ? { rotate: 360 } : { rotate: 0 }}
+          transition={{
+            duration: 2,
+            repeat: config.spin ? Infinity : 0,
+            ease: "linear",
+          }}
         >
-          <Icon size={20} color={config.color} />
+          <config.Icon size={18} color={config.color} />
         </motion.div>
       </motion.div>
 
-      {/* Name */}
       <p
-        className="text-xs font-medium text-center leading-tight"
+        className="text-xs font-semibold text-center leading-tight"
         style={{
           color: status === "idle" ? "#4B5563" : "var(--color-text-primary)",
         }}
       >
-        {agentDef.name.replace(" Agent", "")}
+        {agent.name}
       </p>
 
-      {/* Status badge */}
       <span
         className="mono text-[10px] px-2 py-0.5 rounded-full"
         style={{
@@ -153,10 +209,12 @@ function AgentCard({
   );
 }
 
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PipelineDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const pipelineId = typeof params.id === "string" ? params.id : null;
-  const { pipeline: livePipeline, loading } = usePipelinePolling(pipelineId);
+  const { pipeline: liveData, loading } = usePipelinePolling(pipelineId);
 
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [showApproval, setShowApproval] = useState(false);
@@ -169,62 +227,37 @@ export default function PipelineDetailPage() {
   const [expandedCandidate, setExpandedCandidate] = useState<string | null>(
     null,
   );
+  const [toast, setToast] = useState<{
+    msg: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
+  const [markingScreeningDone, setMarkingScreeningDone] = useState(false);
 
   const addCandidate = useCandidateStore((s) => s.addCandidate);
 
-  const [toast, setToast] = useState<{
-    message: string;
-    type: "success" | "error" | "info";
-  } | null>(null);
+  const lp = liveData as any;
+  const currentStage: string = lp?.currentStage ?? "intake";
+  const requiresApproval: boolean = lp?.requiresHumanApproval ?? false;
+  const jobTitle: string = lp?.jobSpec?.title ?? "Loading...";
+  const log: string[] = lp?.log ?? [];
+  const marketData = lp?.marketIntelligence;
+  const hasConflict = log.some((l) => l.includes("Conflict Agent"));
+  const stageProgress = STAGE_ORDER.indexOf(currentStage);
+  const progressPercent = Math.round(
+    (Math.max(0, stageProgress) / (STAGE_ORDER.length - 1)) * 100,
+  );
 
   const showToast = (
-    message: string,
+    msg: string,
     type: "success" | "error" | "info" = "info",
   ) => {
-    setToast({ message, type });
+    setToast({ msg, type });
     setTimeout(() => setToast(null), 4000);
-  };
-
-  const lp = livePipeline as any;
-  const currentStage = lp?.currentStage ?? "intake";
-  const currentIndex = stageIndex[currentStage] ?? 0;
-  const jobTitle = lp?.jobSpec?.title ?? "New Pipeline";
-  const coordinatorLog: string[] = lp?.log ?? [];
-  const requiresApproval = lp?.requiresHumanApproval ?? false;
-  const marketData = lp?.marketIntelligence;
-
-  // Determine each agent's status
-  const getAgentStatus = (agentId: string) => {
-    const agentStageMap: Record<string, string> = {
-      intake: "intake",
-      market: "market",
-      sourcing: "sourcing",
-      screening: "screening",
-      conflict: "conflict",
-      coordinator: "coordinator",
-    };
-
-    const agentStage = agentStageMap[agentId];
-    const agentIdx = stageIndex[agentStage] ?? 0;
-    const currentIdx = stageIndex[currentStage] ?? 0;
-
-    // Coordinator is special — always active
-    if (agentId === "coordinator") {
-      if (currentStage === "completed") return "completed";
-      return "running";
-    }
-
-    if (agentIdx < currentIdx) return "completed";
-    if (agentId === currentStage) {
-      return requiresApproval ? "waiting" : "running";
-    }
-    return "idle";
   };
 
   const handleScoreCandidate = async () => {
     if (!candidateName.trim() || !candidateProfile.trim()) return;
     setSubmitting(true);
-
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/candidates/score`,
@@ -257,10 +290,69 @@ export default function PipelineDetailPage() {
       setCandidateEmail("");
       setCandidateProfile("");
       setShowAddCandidate(false);
+      showToast(`${candidateName} scored ${result.score}/100`, "success");
     } catch {
-      console.error("Scoring failed");
+      showToast("Scoring failed — check your connection", "error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleApproveShortlist = async () => {
+    if (scoredCandidates.length === 0) {
+      showToast("Add at least one candidate before approving", "error");
+      return;
+    }
+
+    showToast("Saving candidates to pipeline...", "info");
+
+    for (const c of scoredCandidates) {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(c),
+        },
+      );
+    }
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
+      { method: "POST" },
+    );
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.error, "error");
+      return;
+    }
+
+    showToast("Shortlist approved — Screening Agent activated", "success");
+    setTimeout(() => router.push("/candidates"), 1500);
+  };
+
+  const handleMarkScreeningDone = async () => {
+    setMarkingScreeningDone(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/screening-complete`,
+        { method: "POST" },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error, "error");
+        return;
+      }
+      showToast(
+        "Screening marked complete — approve final shortlist",
+        "success",
+      );
+      window.location.reload();
+    } catch {
+      showToast("Failed — try again", "error");
+    } finally {
+      setMarkingScreeningDone(false);
     }
   };
 
@@ -273,24 +365,24 @@ export default function PipelineDetailPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto pb-12">
       {/* Toast */}
       <AnimatePresence>
         {toast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: -20, x: 20 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl
-                 border shadow-lg max-w-sm"
+                       border shadow-xl max-w-xs"
             style={{
               backgroundColor: "var(--color-bg-card)",
               borderColor:
                 toast.type === "error"
-                  ? "rgba(239,68,68,0.4)"
+                  ? "rgba(239,68,68,0.5)"
                   : toast.type === "success"
-                    ? "rgba(16,185,129,0.4)"
-                    : "rgba(99,102,241,0.4)",
+                    ? "rgba(16,185,129,0.5)"
+                    : "rgba(99,102,241,0.5)",
             }}
           >
             <p
@@ -304,11 +396,12 @@ export default function PipelineDetailPage() {
                       : "#6366F1",
               }}
             >
-              {toast.message}
+              {toast.msg}
             </p>
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* Back */}
       <Link
         href="/dashboard"
@@ -325,7 +418,7 @@ export default function PipelineDetailPage() {
             {jobTitle}
           </h1>
           <p className="mono text-xs text-text-muted mt-1 capitalize">
-            Stage: {currentStage} · {coordinatorLog.length} log entries
+            Stage: {currentStage} · {log.length} log entries
           </p>
         </div>
 
@@ -340,60 +433,91 @@ export default function PipelineDetailPage() {
               <span className="mono text-xs text-accent">Live</span>
             </div>
           )}
+
           {requiresApproval && (
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setShowApproval(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg
-                         border cursor-pointer text-xs font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg
+                         border cursor-pointer text-xs font-semibold"
               style={{
-                backgroundColor: "rgba(245,158,11,0.08)",
-                borderColor: "rgba(245,158,11,0.25)",
+                backgroundColor: "rgba(245,158,11,0.1)",
+                borderColor: "rgba(245,158,11,0.4)",
                 color: "#F59E0B",
               }}
             >
-              <AlertCircle size={13} />
+              <motion.div
+                animate={{ opacity: [1, 0.4, 1] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              >
+                <AlertCircle size={13} />
+              </motion.div>
               Action required
             </motion.button>
           )}
         </div>
       </div>
 
-      {/* Agent Pipeline Cards */}
+      {/* Progress bar */}
+      <div className="mb-6">
+        <div className="flex justify-between mb-2">
+          <span className="mono text-xs text-text-muted">
+            Pipeline progress
+          </span>
+          <span className="mono text-xs text-accent">{progressPercent}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-bg-secondary overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.8 }}
+            className="h-full rounded-full"
+            style={{ background: "linear-gradient(90deg, #7C3AED, #10B981)" }}
+          />
+        </div>
+      </div>
+
+      {/* Agent Cards */}
       <div className="rounded-xl border border-border-main bg-bg-card p-6 mb-4">
-        <p className="mono text-xs text-text-muted mb-5">
-          Click any agent to view its activity
+        <p className="mono text-xs text-text-muted mb-4">
+          Click any agent card to see what it did
         </p>
+
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {AGENT_ORDER.map((agentDef) => (
+          {AGENTS.map((agent) => (
             <AgentCard
-              key={agentDef.id}
-              agentDef={agentDef}
-              status={getAgentStatus(agentDef.id)}
+              key={agent.id}
+              agent={agent}
+              status={getAgentStatus(
+                agent.id,
+                currentStage,
+                requiresApproval,
+                hasConflict,
+              )}
+              isSelected={selectedAgent === agent.id}
               onClick={() =>
-                setSelectedAgent(
-                  selectedAgent === agentDef.id ? null : agentDef.id,
-                )
+                setSelectedAgent(selectedAgent === agent.id ? null : agent.id)
               }
-              isSelected={selectedAgent === agentDef.id}
             />
           ))}
         </div>
 
-        {/* Agent detail slide panel */}
+        {/* Agent detail panel */}
         <AnimatePresence>
           {selectedAgent && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mt-4 overflow-hidden"
+              className="overflow-hidden mt-4"
             >
               <div className="rounded-xl border border-border-main bg-bg-secondary p-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-sm font-semibold text-text-primary">
-                    {AGENT_ORDER.find((a) => a.id === selectedAgent)?.name}
+                    {AGENTS.find((a) => a.id === selectedAgent)?.fullName}
                   </p>
                   <button
                     onClick={() => setSelectedAgent(null)}
@@ -404,68 +528,128 @@ export default function PipelineDetailPage() {
                 </div>
 
                 <p className="mono text-xs text-text-muted mb-3">
-                  {AGENT_ORDER.find((a) => a.id === selectedAgent)?.description}
+                  {AGENTS.find((a) => a.id === selectedAgent)?.description}
                 </p>
 
-                {/* Show relevant data per agent */}
+                {/* Intake data */}
                 {selectedAgent === "intake" && lp?.jobSpec && (
                   <div className="space-y-2">
-                    <p className="mono text-xs text-accent">
-                      Role: {lp.jobSpec.title} ({lp.jobSpec.seniority})
+                    <p className="mono text-xs" style={{ color: "#10B981" }}>
+                      Role: {lp.jobSpec.title} · {lp.jobSpec.seniority} ·{" "}
+                      {lp.jobSpec.experienceYears}+ years
                     </p>
                     <p className="mono text-xs text-text-secondary">
-                      Skills: {lp.jobSpec.requiredSkills?.join(", ")}
+                      Required: {lp.jobSpec.requiredSkills?.join(", ")}
                     </p>
-                    <p className="mono text-xs text-text-secondary">
-                      Experience: {lp.jobSpec.experienceYears} years
-                    </p>
+                    {lp.jobSpec.responsibilities?.length > 0 && (
+                      <p className="mono text-xs text-text-muted">
+                        Key duties:{" "}
+                        {lp.jobSpec.responsibilities.slice(0, 2).join(" · ")}
+                      </p>
+                    )}
                   </div>
                 )}
 
+                {/* Market data */}
                 {selectedAgent === "market" && marketData && (
                   <div className="space-y-2">
-                    <p className="mono text-xs text-accent">
+                    <p className="mono text-xs" style={{ color: "#06B6D4" }}>
                       Salary: ${marketData.salaryRange?.min?.toLocaleString()} —
-                      ${marketData.salaryRange?.max?.toLocaleString()} USD
+                      ${marketData.salaryRange?.max?.toLocaleString()}{" "}
+                      {marketData.salaryRange?.currency}
                     </p>
                     <p className="mono text-xs text-text-secondary">
-                      Supply: {marketData.talentSupply} · Time to hire:{" "}
+                      Talent supply: {marketData.talentSupply} · Avg hire time:{" "}
                       {marketData.averageTimeToHire}
                     </p>
                     <p className="mono text-xs text-text-secondary">
+                      Top competitors: {marketData.topCompetitors?.join(", ")}
+                    </p>
+                    <p className="mono text-xs text-text-muted mt-1">
                       {marketData.marketSummary}
                     </p>
                   </div>
                 )}
 
+                {/* Sourcing data */}
                 {selectedAgent === "sourcing" && (
-                  <p className="mono text-xs text-text-muted">
-                    {scoredCandidates.length > 0
-                      ? `${scoredCandidates.length} candidates scored`
-                      : "Add candidates below to score them"}
-                  </p>
+                  <div className="space-y-1">
+                    {scoredCandidates.length === 0 ? (
+                      <p className="mono text-xs text-text-muted">
+                        No candidates scored yet — add candidates below
+                      </p>
+                    ) : (
+                      scoredCandidates.map((c, i) => (
+                        <p key={i} className="mono text-xs text-text-secondary">
+                          {">"} {c.name} — {c.score}/100 ·{" "}
+                          {c.recommendation?.replace("_", " ")}
+                        </p>
+                      ))
+                    )}
+                  </div>
                 )}
 
-                {/* Coordinator log for other agents */}
-                {["screening", "conflict", "coordinator"].includes(
-                  selectedAgent,
-                ) && (
+                {/* Conflict data */}
+                {selectedAgent === "conflict" && (
                   <div className="space-y-1">
-                    {coordinatorLog
-                      .filter((l) => l.toLowerCase().includes(selectedAgent))
-                      .slice(-3)
-                      .map((line, i) => (
-                        <p key={i} className="mono text-xs text-text-secondary">
-                          {">"} {line}
-                        </p>
-                      ))}
-                    {coordinatorLog.filter((l) =>
-                      l.toLowerCase().includes(selectedAgent),
-                    ).length === 0 && (
+                    {hasConflict ? (
+                      log
+                        .filter((l) => l.includes("Conflict"))
+                        .map((l, i) => (
+                          <p
+                            key={i}
+                            className="mono text-xs text-text-secondary"
+                          >
+                            {">"} {l}
+                          </p>
+                        ))
+                    ) : (
                       <p className="mono text-xs text-text-muted">
-                        Not yet activated
+                        No conflicts detected — all candidates scored within
+                        normal range
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Screening data */}
+                {selectedAgent === "screening" && (
+                  <div>
+                    {currentStage === "screening" ? (
+                      <div className="space-y-2">
+                        <p
+                          className="mono text-xs"
+                          style={{ color: "#6366F1" }}
+                        >
+                          Active — go to Candidates page to conduct interviews
+                        </p>
+                        <Link
+                          href="/candidates"
+                          className="mono text-xs text-accent underline cursor-pointer"
+                        >
+                          → Open Candidates page
+                        </Link>
+                      </div>
+                    ) : currentStage === "completed" ? (
+                      <p className="mono text-xs text-accent">
+                        Screening completed — candidates interviewed
+                      </p>
+                    ) : (
+                      <p className="mono text-xs text-text-muted">
+                        Activates after sourcing shortlist is approved
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Coordinator data */}
+                {selectedAgent === "coordinator" && (
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {log.slice(-6).map((l, i) => (
+                      <p key={i} className="mono text-xs text-text-secondary">
+                        {">"} {l.replace(/\[.*?\]\s/, "")}
+                      </p>
+                    ))}
                   </div>
                 )}
               </div>
@@ -474,47 +658,23 @@ export default function PipelineDetailPage() {
         </AnimatePresence>
       </div>
 
-      {/* Coordinator Log */}
-      {coordinatorLog.length > 0 && (
-        <div className="rounded-xl border border-border-main bg-bg-card p-5 mb-4">
-          <p className="mono text-xs text-text-muted mb-3">Coordinator log</p>
-          <div className="space-y-1.5">
-            {coordinatorLog.map((line, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="mono text-[10px] text-text-muted w-4 flex-shrink-0">
-                  {i + 1}
-                </span>
-                <span
-                  className="mono text-xs"
-                  style={{
-                    color:
-                      line.includes("complete") || line.includes("✓")
-                        ? "#10B981"
-                        : line.includes("failed") || line.includes("Error")
-                          ? "#EF4444"
-                          : line.includes("Human:")
-                            ? "#F59E0B"
-                            : "#94A3B8",
-                  }}
-                >
-                  {line}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── STAGE-SPECIFIC ACTION PANELS ─────────────────────────────────── */}
 
-      {/* Candidate Scoring — only show in sourcing stage */}
+      {/* SOURCING STAGE — Score candidates */}
       {currentStage === "sourcing" && (
-        <div className="rounded-xl border border-border-main bg-bg-card p-5 mb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border-main bg-bg-card p-5 mb-4"
+        >
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-text-primary">
-                Sourcing Agent — Candidate Scoring
+                Sourcing Agent — Score Candidates
               </h3>
               <p className="mono text-xs text-text-muted mt-0.5">
-                Paste a candidate CV summary for AI scoring against this job
+                Paste each candidate CV summary. Qwen scores them against the
+                job spec.
               </p>
             </div>
             <motion.button
@@ -522,15 +682,14 @@ export default function PipelineDetailPage() {
               whileTap={{ scale: 0.98 }}
               onClick={() => setShowAddCandidate(!showAddCandidate)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                         bg-accent text-white text-xs font-medium
-                         border-0 cursor-pointer"
+                         bg-accent text-white text-xs font-medium border-0 cursor-pointer"
             >
               <Plus size={12} />
               Add candidate
             </motion.button>
           </div>
 
-          {/* Add form */}
+          {/* Add candidate form */}
           <AnimatePresence>
             {showAddCandidate && (
               <motion.div
@@ -551,8 +710,7 @@ export default function PipelineDetailPage() {
                       placeholder="e.g. Amara Osei"
                       className="w-full px-3 py-2 rounded-lg border border-border-main
                                  bg-bg-card text-text-primary text-sm outline-none
-                                 focus:border-accent transition-colors
-                                 placeholder:text-text-muted"
+                                 focus:border-accent transition-colors placeholder:text-text-muted"
                     />
                   </div>
                   <div>
@@ -566,8 +724,7 @@ export default function PipelineDetailPage() {
                       placeholder="amara@email.com"
                       className="w-full px-3 py-2 rounded-lg border border-border-main
                                  bg-bg-card text-text-primary text-sm outline-none
-                                 focus:border-accent transition-colors
-                                 placeholder:text-text-muted"
+                                 focus:border-accent transition-colors placeholder:text-text-muted"
                     />
                   </div>
                 </div>
@@ -579,7 +736,7 @@ export default function PipelineDetailPage() {
                   <textarea
                     value={candidateProfile}
                     onChange={(e) => setCandidateProfile(e.target.value)}
-                    placeholder="e.g. Senior engineer with 6 years in React and Node.js. Led team of 8 at Paystack. Built microservices handling 10M requests/day. AWS certified. Strong CI/CD with GitHub Actions..."
+                    placeholder="Senior engineer with 6 years in React and Node.js. Led team of 8 at Paystack. Built microservices handling 10M daily requests. AWS certified. Strong CI/CD with GitHub Actions and Docker..."
                     rows={4}
                     className="w-full px-3 py-2 rounded-lg border border-border-main
                                bg-bg-card text-text-primary text-sm outline-none
@@ -587,12 +744,11 @@ export default function PipelineDetailPage() {
                                placeholder:text-text-muted mono"
                   />
                   <p className="mono text-xs text-text-muted mt-1">
-                    {candidateProfile.length} chars — be specific about skills
-                    and experience
+                    {candidateProfile.length} chars
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex gap-2">
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
@@ -602,34 +758,30 @@ export default function PipelineDetailPage() {
                       !candidateName.trim() ||
                       !candidateProfile.trim()
                     }
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg
-                               bg-accent text-white text-xs font-medium
-                               border-0 cursor-pointer disabled:opacity-40
-                               disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent
+                               text-white text-xs font-medium border-0 cursor-pointer
+                               disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {submitting ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{
-                            duration: 1,
-                            repeat: Infinity,
-                            ease: "linear",
-                          }}
-                        >
-                          <Loader size={12} />
-                        </motion.div>
-                        Scoring with Qwen...
-                      </>
-                    ) : (
-                      "Score with Sourcing Agent"
-                    )}
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: "linear",
+                        }}
+                      >
+                        <Loader size={12} />
+                      </motion.div>
+                    ) : null}
+                    {submitting
+                      ? "Scoring with Qwen..."
+                      : "Score with Sourcing Agent"}
                   </motion.button>
                   <button
                     onClick={() => setShowAddCandidate(false)}
                     className="px-3 py-2 rounded-lg border border-border-main
-                               text-text-muted text-xs cursor-pointer
-                               hover:bg-bg-hover transition-colors"
+                               text-text-muted text-xs cursor-pointer hover:bg-bg-hover"
                   >
                     Cancel
                   </button>
@@ -638,22 +790,22 @@ export default function PipelineDetailPage() {
             )}
           </AnimatePresence>
 
-          {/* Scored candidates */}
+          {/* Scored candidates list */}
           {scoredCandidates.length === 0 ? (
             <div
-              className="flex flex-col items-center justify-center h-20
-                            border border-border-main rounded-xl border-dashed"
+              className="flex items-center justify-center h-16
+                            border border-dashed border-border-main rounded-xl"
             >
               <p className="mono text-xs text-text-muted">
-                No candidates scored yet — click Add candidate above
+                No candidates yet — click Add candidate
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {scoredCandidates.map((c, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-xl border border-border-main bg-bg-secondary overflow-hidden"
                 >
@@ -662,23 +814,30 @@ export default function PipelineDetailPage() {
                                hover:bg-bg-hover transition-colors"
                     onClick={() =>
                       setExpandedCandidate(
-                        expandedCandidate === c.id ? null : c.id,
+                        expandedCandidate === c.name ? null : c.name,
                       )
                     }
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className="w-8 h-8 rounded-full flex items-center justify-center
-                                   text-xs font-semibold"
+                                   text-xs font-bold"
                         style={{
                           backgroundColor:
                             c.score >= 80
                               ? "rgba(16,185,129,0.15)"
-                              : "rgba(245,158,11,0.15)",
-                          color: c.score >= 80 ? "#10B981" : "#F59E0B",
+                              : c.score >= 60
+                                ? "rgba(245,158,11,0.15)"
+                                : "rgba(239,68,68,0.15)",
+                          color:
+                            c.score >= 80
+                              ? "#10B981"
+                              : c.score >= 60
+                                ? "#F59E0B"
+                                : "#EF4444",
                         }}
                       >
-                        {c.name?.charAt(0) ?? "?"}
+                        {c.name?.charAt(0)}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-text-primary">
@@ -695,7 +854,12 @@ export default function PipelineDetailPage() {
                         <p
                           className="text-xl font-bold"
                           style={{
-                            color: c.score >= 80 ? "#10B981" : "#F59E0B",
+                            color:
+                              c.score >= 80
+                                ? "#10B981"
+                                : c.score >= 60
+                                  ? "#F59E0B"
+                                  : "#EF4444",
                           }}
                         >
                           {c.score}
@@ -710,16 +874,24 @@ export default function PipelineDetailPage() {
                           color:
                             c.recommendation === "strong_yes"
                               ? "#10B981"
-                              : "#F59E0B",
+                              : c.recommendation === "yes"
+                                ? "#06B6D4"
+                                : c.recommendation === "maybe"
+                                  ? "#F59E0B"
+                                  : "#EF4444",
                           backgroundColor:
                             c.recommendation === "strong_yes"
                               ? "rgba(16,185,129,0.1)"
-                              : "rgba(245,158,11,0.1)",
+                              : c.recommendation === "yes"
+                                ? "rgba(6,182,212,0.1)"
+                                : c.recommendation === "maybe"
+                                  ? "rgba(245,158,11,0.1)"
+                                  : "rgba(239,68,68,0.1)",
                         }}
                       >
                         {c.recommendation?.replace("_", " ").toUpperCase()}
                       </span>
-                      {expandedCandidate === c.id ? (
+                      {expandedCandidate === c.name ? (
                         <ChevronUp size={14} color="#4B5563" />
                       ) : (
                         <ChevronDown size={14} color="#4B5563" />
@@ -727,9 +899,8 @@ export default function PipelineDetailPage() {
                     </div>
                   </div>
 
-                  {/* Expanded trace */}
                   <AnimatePresence>
-                    {expandedCandidate === c.id && (
+                    {expandedCandidate === c.name && (
                       <motion.div
                         initial={{ height: 0 }}
                         animate={{ height: "auto" }}
@@ -738,31 +909,22 @@ export default function PipelineDetailPage() {
                       >
                         <div className="p-4 space-y-3">
                           {/* Score bar */}
-                          <div>
-                            <div className="flex justify-between mb-1">
-                              <span className="mono text-xs text-text-muted">
-                                Match score
-                              </span>
-                              <span className="mono text-xs text-text-muted">
-                                Confidence: {c.confidence}%
-                              </span>
-                            </div>
-                            <div className="h-1.5 rounded-full bg-bg-primary overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{ width: `${c.score}%` }}
-                                className="h-full rounded-full"
-                                style={{
-                                  background:
-                                    c.score >= 80
-                                      ? "linear-gradient(90deg,#059669,#10B981)"
-                                      : "linear-gradient(90deg,#D97706,#F59E0B)",
-                                }}
-                              />
-                            </div>
+                          <div className="h-1.5 rounded-full bg-bg-primary overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${c.score}%` }}
+                              className="h-full rounded-full"
+                              style={{
+                                background:
+                                  c.score >= 80
+                                    ? "linear-gradient(90deg,#059669,#10B981)"
+                                    : c.score >= 60
+                                      ? "linear-gradient(90deg,#D97706,#F59E0B)"
+                                      : "linear-gradient(90deg,#DC2626,#EF4444)",
+                              }}
+                            />
                           </div>
 
-                          {/* Strengths */}
                           {c.strengths?.length > 0 && (
                             <div>
                               <p className="mono text-xs text-accent mb-1.5">
@@ -785,7 +947,6 @@ export default function PipelineDetailPage() {
                             </div>
                           )}
 
-                          {/* Gaps */}
                           {c.gaps?.length > 0 && (
                             <div>
                               <p
@@ -811,7 +972,6 @@ export default function PipelineDetailPage() {
                             </div>
                           )}
 
-                          {/* Reasoning trace */}
                           {c.reasoningTrace?.length > 0 && (
                             <div>
                               <p className="mono text-xs text-text-muted mb-1.5">
@@ -841,158 +1001,165 @@ export default function PipelineDetailPage() {
               ))}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Proceed to screening */}
-      {currentStage === "sourcing" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-4 p-4 rounded-xl border border-border-main bg-bg-secondary"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-primary">
-                {scoredCandidates.length === 0
-                  ? "No candidates scored yet"
-                  : `${scoredCandidates.length} candidate(s) scored`}
-              </p>
-              <p className="mono text-xs text-text-muted mt-0.5">
-                {scoredCandidates.length === 0
-                  ? "Add at least one candidate before proceeding"
-                  : "Ready to proceed to screening phase"}
-              </p>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: scoredCandidates.length > 0 ? 1.02 : 1 }}
-              whileTap={{ scale: scoredCandidates.length > 0 ? 0.98 : 1 }}
-              onClick={async () => {
-                if (scoredCandidates.length === 0) {
-                  showToast(
-                    "Add at least one candidate before proceeding",
-                    "error",
-                  );
-                  return;
-                }
-
-                showToast("Saving candidates...", "info");
-
-                for (const candidate of scoredCandidates) {
-                  await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(candidate),
-                    },
-                  );
-                }
-
-                const res = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
-                  { method: "POST" },
-                );
-
-                const data = await res.json();
-
-                if (!res.ok) {
-                  showToast(data.error, "error");
-                  return;
-                }
-
-                showToast(
-                  "Shortlist approved — moving to screening",
-                  "success",
-                );
-                setTimeout(() => {
-                  window.location.href = `/candidates`;
-                }, 1500);
-              }}
-              disabled={scoredCandidates.length === 0}
-              className="px-4 py-2 rounded-lg text-xs font-medium border-0
-                   cursor-pointer transition-all"
-              style={{
-                backgroundColor:
-                  scoredCandidates.length > 0
-                    ? "var(--color-accent)"
-                    : "var(--color-border)",
-                color:
-                  scoredCandidates.length > 0
-                    ? "#fff"
-                    : "var(--color-text-muted)",
-                cursor:
-                  scoredCandidates.length === 0 ? "not-allowed" : "pointer",
-              }}
-            >
-              {scoredCandidates.length === 0
-                ? "Add candidates first"
-                : "Approve shortlist → Screening"}
-            </motion.button>
-          </div>
-
-          {/* Conflict warning */}
-          {scoredCandidates.some((c: any) => c.score < 70) && (
+          {/* Approve shortlist button — only shows when candidates exist */}
+          {scoredCandidates.length > 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="mt-3 p-3 rounded-lg border mono text-xs"
-              style={{
-                borderColor: "rgba(245,158,11,0.3)",
-                backgroundColor: "rgba(245,158,11,0.05)",
-                color: "#F59E0B",
-              }}
+              className="mt-4 p-4 rounded-xl border border-border-main
+                         bg-bg-secondary flex items-center justify-between"
             >
-              ⚠ Conflict Agent will review borderline candidates automatically
+              <div>
+                <p className="text-sm font-semibold text-text-primary">
+                  {scoredCandidates.length} candidate
+                  {scoredCandidates.length > 1 ? "s" : ""} scored
+                </p>
+                <p className="mono text-xs text-text-muted mt-0.5">
+                  Approve shortlist to activate Screening Agent
+                </p>
+                {scoredCandidates.some((c: any) => c.score < 70) && (
+                  <p className="mono text-xs mt-1" style={{ color: "#F59E0B" }}>
+                    ⚠ Conflict Agent will review borderline candidates
+                  </p>
+                )}
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleApproveShortlist}
+                className="px-5 py-2.5 rounded-lg bg-accent text-white
+                           text-xs font-semibold border-0 cursor-pointer"
+              >
+                Approve shortlist →
+              </motion.button>
             </motion.div>
           )}
         </motion.div>
       )}
 
-      {/* After scoring — navigate hint */}
-      {scoredCandidates.length > 0 && (
+      {/* SCREENING STAGE — recruiter must screen then mark done */}
+      {currentStage === "screening" && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-3 flex items-center justify-between p-3 rounded-lg
-               border border-border-main bg-bg-card"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border-main bg-bg-card p-5 mb-4"
         >
-          <p className="mono text-xs text-text-muted">
-            {scoredCandidates.length} candidate(s) ready for screening
-          </p>
-
-          <a
-            href="/candidates"
-            className="mono text-xs text-accent hover:underline cursor-pointer"
-          >
-            Go to Candidates page →
-          </a>
-        </motion.div>
-      )}
-
-      {/* Show what's next */}
-      {scoredCandidates.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-3 p-4 rounded-xl border border-dashed border-border-main"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Clock size={13} color="#F59E0B" />
-            <p className="text-xs font-medium text-text-primary">
-              Next: Screening Agent
-            </p>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">
+                Screening Agent — Active
+              </h3>
+              <p className="mono text-xs text-text-muted mt-0.5">
+                The Screening Agent is ready to conduct candidate interviews. Go
+                to the Candidates page, click Screen candidate on each
+                candidate, and chat as if you are asking screening questions.
+                Come back here when done to approve the final shortlist.
+              </p>
+            </div>
+            <motion.div
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-2.5 h-2.5 rounded-full mt-1 flex-shrink-0"
+              style={{ backgroundColor: "#6366F1" }}
+            />
           </div>
-          <p className="mono text-xs text-text-muted">
-            Once you proceed, the Screening Agent will be ready to conduct
-            multi-turn conversations with scored candidates on the Candidates
-            page.
-          </p>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/candidates"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg
+                         border border-border-main bg-bg-secondary
+                         text-sm font-medium text-text-secondary
+                         hover:bg-bg-hover transition-colors cursor-pointer"
+            >
+              <MessageSquare size={14} />
+              Go to Candidates → Screen now
+            </Link>
+
+            {!requiresApproval && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleMarkScreeningDone}
+                disabled={markingScreeningDone}
+                className="px-4 py-2.5 rounded-lg border text-sm font-medium
+                           cursor-pointer disabled:opacity-40"
+                style={{
+                  borderColor: "rgba(99,102,241,0.4)",
+                  backgroundColor: "rgba(99,102,241,0.08)",
+                  color: "#6366F1",
+                }}
+              >
+                {markingScreeningDone
+                  ? "Marking done..."
+                  : "Mark screening complete →"}
+              </motion.button>
+            )}
+          </div>
         </motion.div>
       )}
 
-      {/* Approval Modal */}
+      {/* COMPLETED STAGE */}
+      {currentStage === "completed" && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-xl border p-6 mb-4 text-center"
+          style={{
+            borderColor: "rgba(16,185,129,0.3)",
+            backgroundColor: "rgba(16,185,129,0.05)",
+          }}
+        >
+          <CheckCircle size={32} color="#10B981" className="mx-auto mb-3" />
+          <h3 className="font-syne font-bold text-lg text-text-primary mb-1">
+            Pipeline Complete
+          </h3>
+          <p className="mono text-xs text-text-muted">
+            All 6 agents have completed their work. View final candidates below.
+          </p>
+          <Link
+            href="/candidates"
+            className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 rounded-lg
+                       bg-accent text-white text-sm font-medium cursor-pointer"
+          >
+            View final candidates →
+          </Link>
+        </motion.div>
+      )}
+
+      {/* Coordinator Log */}
+      {log.length > 0 && (
+        <div className="rounded-xl border border-border-main bg-bg-card p-5">
+          <p className="mono text-xs text-text-muted mb-3">Coordinator log</p>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {log.map((line, i) => (
+              <div key={i} className="flex gap-2">
+                <span className="mono text-[10px] text-text-muted w-4 flex-shrink-0">
+                  {i + 1}
+                </span>
+                <span
+                  className="mono text-xs"
+                  style={{
+                    color:
+                      line.includes("complete") || line.includes("✓")
+                        ? "#10B981"
+                        : line.includes("failed") || line.includes("Error")
+                          ? "#EF4444"
+                          : line.includes("Human:") || line.includes("Conflict")
+                            ? "#F59E0B"
+                            : "#94A3B8",
+                  }}
+                >
+                  {line.replace(/\[\d{4}-\d{2}-\d{2}T.*?\]\s/, "")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Approval modal */}
       {showApproval && lp && (
         <ApprovalModal
           pipeline={{
