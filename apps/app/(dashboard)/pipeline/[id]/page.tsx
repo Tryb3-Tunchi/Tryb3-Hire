@@ -328,8 +328,12 @@ export default function PipelineDetailPage() {
       return;
     }
 
-    showToast("Shortlist approved — Screening Agent activated", "success");
-    setTimeout(() => router.push("/candidates"), 1500);
+    showToast("Shortlist approved — opening screening", "success");
+
+    // Navigate after toast shows
+    setTimeout(() => {
+      window.location.href = "/candidates";
+    }, 2000);
   };
 
   const handleMarkScreeningDone = async () => {
