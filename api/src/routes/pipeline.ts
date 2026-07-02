@@ -118,22 +118,43 @@ router.post("/:id/approve", (req: Request, res: Response) => {
     return;
   }
 
+  // Set pipeline ready for approval (sourcing complete)
+  router.post("/:id/ready-to-approve", (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const pipeline = pipelines.get(id);
+
+    if (!pipeline) {
+      res.status(404).json({ error: "Pipeline not found" });
+      return;
+    }
+
+    pipeline.requiresHumanApproval = true;
+    pipeline.humanApprovalReason =
+      "Shortlist ready — approve to move to screening";
+    pipeline.log.push("Coordinator: Shortlist ready — awaiting human approval");
+    pipelines.set(id, pipeline);
+
+    res.json({ message: "Pipeline ready for approval" });
+  });
+
   const candidates = pipelineCandidates.get(id) ?? [];
 
   // Strict validation per stage
- // Only block approval if we're in sourcing AND 
-// the approval reason is about the shortlist (not market findings)
-if (pipeline.currentStage === "sourcing") {
-  const isShortlistApproval = pipeline.humanApprovalReason?.includes("shortlist") ||
-    pipeline.humanApprovalReason?.includes("Score candidates");
+  // Only block approval if we're in sourcing AND
+  // the approval reason is about the shortlist (not market findings)
+  if (pipeline.currentStage === "sourcing") {
+    const isShortlistApproval =
+      pipeline.humanApprovalReason?.includes("shortlist") ||
+      pipeline.humanApprovalReason?.includes("Score candidates");
 
-  if (isShortlistApproval && candidates.length === 0) {
-    res.status(400).json({
-      error: "You must score at least one candidate before approving the shortlist",
-    });
-    return;
+    if (isShortlistApproval && candidates.length === 0) {
+      res.status(400).json({
+        error:
+          "You must score at least one candidate before approving the shortlist",
+      });
+      return;
+    }
   }
-}
   const stageProgression: Record<string, string> = {
     market: "sourcing",
     sourcing: "screening",

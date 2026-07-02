@@ -257,6 +257,7 @@ export default function PipelineDetailPage() {
 
   const handleScoreCandidate = async () => {
     if (!candidateName.trim() || !candidateProfile.trim()) return;
+     if (submitting) return; // prevent double submission
     setSubmitting(true);
     try {
       const res = await fetch(
@@ -298,42 +299,63 @@ export default function PipelineDetailPage() {
     }
   };
 
+  const [shortlistApproved, setShortlistApproved] = useState(false);
+
   const handleApproveShortlist = async () => {
     if (scoredCandidates.length === 0) {
       showToast("Add at least one candidate before approving", "error");
       return;
     }
 
-    showToast("Saving candidates to pipeline...", "info");
-
-    for (const c of scoredCandidates) {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(c),
-        },
-      );
-    }
-
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
-      { method: "POST" },
-    );
-    const data = await res.json();
-
-    if (!res.ok) {
-      showToast(data.error, "error");
+    if (shortlistApproved) {
+      showToast("Shortlist already approved", "info");
       return;
     }
 
-    showToast("Shortlist approved — opening screening", "success");
+    showToast("Approving shortlist...", "info");
+    setShortlistApproved(true);
 
-    // Navigate after toast shows
-    setTimeout(() => {
-      window.location.href = "/candidates";
-    }, 2000);
+    try {
+      // Save candidates to backend
+      for (const c of scoredCandidates) {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/candidates`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(c),
+          },
+        );
+      }
+
+      // Set requiresHumanApproval to true first
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/ready-to-approve`,
+        { method: "POST" },
+      );
+
+      // Then approve
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/pipelines/${pipelineId}/approve`,
+        { method: "POST" },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error, "error");
+        setShortlistApproved(false);
+        return;
+      }
+
+      showToast("Shortlist approved — going to screening", "success");
+      setTimeout(() => {
+        window.location.href = "/candidates";
+      }, 1500);
+    } catch {
+      showToast("Failed — try again", "error");
+      setShortlistApproved(false);
+    }
   };
 
   const handleMarkScreeningDone = async () => {
